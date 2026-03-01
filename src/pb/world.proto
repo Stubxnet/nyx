@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package world;
+
+message Chunk {
+  string file_path = 1;             // Chunk file path
+}
+
+message Dimension {
+  string name = 1;                  // Dimension name
+  repeated Chunk chunks = 2;        // Chunks of the dimension
+}
+
+message Player {
+    float x = 1;                    // x
+    float y = 2;                    // y
+    float z = 3;                    // z
+    string name = 4;                // Player's name
+    int32 uuid = 5;                 // Player's UUID
+    string skin = 6;                // Player's skin
+    int32 fov = 7;                  // Field of view (FOV)
+    int32 render_distance = 8;      // Render distance
+}
+
+message World {
+  repeated Dimension dimensions = 1; // Dimensions
+  repeated string presets = 2;       // World presets
+}

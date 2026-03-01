@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package world;
+
+message Block {
+  int32 id = 1;                     // Block id
+  string texture = 3;               // Texture path
+  string data = 4;                  // Additionnal data
+  repeated float position = 5;      // Position [x, y, z]
+  int32 material_type = 6;          // Material type
+  int32 resistance = 7;             // Resistance
+  int32 entities_passable = 8;      // Entities that can pass over blocks
+  string additionnal_data = 9;      // Additionnal data
+}
+
+message Chunk {
+  repeated Block blocks = 1;         // Block list in the chunk
+  repeated float position = 2;       // Position of the chunk [x, y, z]
+  string biome = 3;                  // Biome name
+  string additional_data = 4;        // Additionnal data
+}

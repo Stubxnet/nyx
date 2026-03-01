@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 ## Nyx
 
 ### Nyx is the starting piece of a MC-like block game.

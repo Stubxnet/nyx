@@ -1,3 +1,6 @@
+#ifndef CHUNK_HPP
+#define CHUNK_HPP
+
 #include <string>
 #include <vector>
 #include "Block.hpp"
@@ -8,7 +11,7 @@ private:
     Vector3 position;
     std::string biome;
     std::string subBiome;
-    std::vector<Block> blocks;
+    std::vector<Block> blocks; // TODO: replace this by a static type, fixed to 4096 blocks (16x16x16)
 
 public:
     Chunk(float x, float y, float z, const std::string& biome, const std::string& subBiome) 
@@ -27,21 +30,28 @@ public:
                 return block;
             }
         }
-        return nullptr;
     }
 
-    void setBlock(int x, int y, int z, int id) {
+    bool setBlock(int x, int y, int z, int id) {
         for (auto& block : blocks) {
             Vector3 blockPos = block.getPosition();
             if (blockPos.x == x && blockPos.y == y && blockPos.z == z) {
                 block.setId(id);
-                return;
+                return true;
             }
         }
-        return nullptr;
+        return false;
     }
 
-    void addBlock(const Block& block) {
-        blocks.push_back(block);
+    bool addBlock(const Block& block) {
+        std::size_t length = blocks.size();
+        if (length >= 4096) { // 4096 because chunks have a size of 16x16x16 blocks
+            return false;
+        } else {
+            blocks.push_back(block);
+            return true;
+        }
     }
 };
+
+#endif // CHUNK_HPP

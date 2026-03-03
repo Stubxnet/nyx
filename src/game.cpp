@@ -1,11 +1,38 @@
 #include "game.hpp"
-#include "rcamera.h"
-#include "rlgl.h"
 
 enum GameScreen { MENU, GAME, OPTIONS };
 
 void Game::init() {
     // TODO: use this initialization function
+}
+
+World Game::initGameData(World& world) { // only for tests
+    GameRules defaultGamerules;
+
+    Dimension overworld("Overworld");
+
+    for (int x = -1; x <= 1; ++x) {
+        for (int y = -1; y <= 1; ++y) {
+            for (int z = -1; z <= 1; ++z) {
+                Chunk chunk(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z), "volcano", "desert");
+                for (int bx = 0; bx < 16; ++bx) {
+                    for (int by = 0; by < 16; ++by) {
+                        for (int bz = 0; bz < 16; ++bz) {
+                            Block block(bx + (x * 16), by + (y * 16), bz + (z * 16), 4);
+                            block.setBreakable(true);
+                            block.setResistance(2);
+                            chunk.addBlock(block);
+                        }
+                    }
+                }
+                overworld.addChunk(chunk);
+            }
+        }
+    }
+
+    world.addDimension(overworld);
+    world.setDefaultGamerules(defaultGamerules);
+    return world;
 }
 
 void Game::run(const Config& config) {
@@ -55,11 +82,18 @@ void Game::run(const Config& config) {
 
     int cameraMode = CAMERA_FIRST_PERSON;
 
+    float player_speed = 0.5f;                // TODO: Define a class Entity and create an instance for the player
+    Vector3 rotation = {0.0f, 0.0f, 0.0f};
+
+    float zoom = GetMouseWheelMove() * 0.5f;
+
+    int ZQSD_or_WASD = 1; // put it on 0 to use WASD and on 1 to use ZQSD
+
     // MENU screen
     float buttonWidth = 200;
     float buttonHeight = 50;
     float buttonSpacing = 20;
-    
+
     //----------- HUD-related functions-------------
 
     // F3
@@ -109,25 +143,13 @@ void Game::run(const Config& config) {
             }
 
             case GAME: {
+                rotation.x = GetMouseDelta().x * 0.1f;
+                rotation.y = GetMouseDelta().y * 0.1f;
+
+                Vector3 movement = {0.0f, 0.0f, 0.0f};
                 // ---------- Cursor management
                 if (!IsCursorHidden()) {
                     DisableCursor();
-                }
-                if (IsKeyPressed(KEY_ONE)) {
-                    cameraMode = CAMERA_FREE;
-                    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f }; // Reset roll
-                }
-                if (IsKeyPressed(KEY_TWO)) {
-                    cameraMode = CAMERA_FIRST_PERSON;
-                    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f }; // Reset roll
-                }
-                if (IsKeyPressed(KEY_THREE)) {
-                    cameraMode = CAMERA_THIRD_PERSON;
-                    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f }; // Reset roll
-                }
-                if (IsKeyPressed(KEY_FOUR)) {
-                    cameraMode = CAMERA_ORBITAL;
-                    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f }; // Reset roll
                 }
                 if (IsKeyPressed(KEY_F3)) {
                     if (!f3enabled) {
@@ -167,7 +189,48 @@ void Game::run(const Config& config) {
                     std::cout << "Chat opened" << std::endl;
                     IsChatOpened = true;
                 }
-
+                if (ZQSD_or_WASD == 0) {
+                    if (IsKeyDown(KEY_W)) {
+                        movement.x = player_speed;
+                    }
+                    if (IsKeyDown(KEY_S)) {
+                        movement.x = -player_speed;
+                    }
+                    if (IsKeyDown(KEY_D)) {
+                        movement.y = player_speed;
+                    }
+                    if (IsKeyDown(KEY_A)) {
+                        movement.y = -player_speed;
+                    }
+                    if (IsKeyDown(KEY_SPACE)) {
+                        movement.z = player_speed;
+                    }
+                    if (IsKeyDown(KEY_LEFT_SHIFT)) {
+                        movement.z = -player_speed;
+                    }
+                } else if (ZQSD_or_WASD == 1) {
+                    if (IsKeyDown(KEY_Z)) {
+                        movement.x = player_speed;
+                    }
+                    if (IsKeyDown(KEY_S)) {
+                        movement.x = -player_speed;
+                    }
+                    if (IsKeyDown(KEY_Q)) {
+                        movement.y = player_speed;
+                    }
+                    if (IsKeyDown(KEY_D)) {
+                        movement.y = -player_speed;
+                    }
+                    if (IsKeyDown(KEY_SPACE)) {
+                        movement.z = player_speed;
+                    }
+                    if (IsKeyDown(KEY_LEFT_SHIFT)) {
+                        movement.z = -player_speed;
+                    }
+                }
+                
+                UpdateCameraPro(&camera, movement, rotation, zoom);
+                
                 BeginDrawing();
                 ClearBackground(backgroundColor);
                 BeginMode3D(camera);
@@ -184,7 +247,6 @@ void Game::run(const Config& config) {
                 }
 
                 EndMode3D();
-                UpdateCamera(&camera, cameraMode);
 
                 //-------------------2D Drawing--------------------
 

@@ -2,37 +2,10 @@
 
 enum GameScreen { MENU, GAME, OPTIONS };
 
+const int CHUNK_SIZE = 16;
+
 void Game::init() {
     // TODO: use this initialization function
-}
-
-World Game::initGameData(World& world) { // only for tests
-    GameRules defaultGamerules;
-
-    Dimension overworld("Overworld");
-
-    for (int x = -1; x <= 1; ++x) {
-        for (int y = -1; y <= 1; ++y) {
-            for (int z = -1; z <= 1; ++z) {
-                Chunk chunk(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z), "volcano", "desert");
-                for (int bx = 0; bx < 16; ++bx) {
-                    for (int by = 0; by < 16; ++by) {
-                        for (int bz = 0; bz < 16; ++bz) {
-                            Block block(bx + (x * 16), by + (y * 16), bz + (z * 16), 4);
-                            block.setBreakable(true);
-                            block.setResistance(2);
-                            chunk.addBlock(block);
-                        }
-                    }
-                }
-                overworld.addChunk(chunk);
-            }
-        }
-    }
-
-    world.addDimension(overworld);
-    world.setDefaultGamerules(defaultGamerules);
-    return world;
 }
 
 void Game::run(const Config& config) {
@@ -40,7 +13,14 @@ void Game::run(const Config& config) {
     InitWindow(config.windowWidth, config.windowHeight, title);
 
     GameScreen currentScreen = MENU;
+
     SetTargetFPS(60);
+
+    //////////////////////////////////////////////////////////////////////////
+    /////////////////      WORLD CLASS INITIALIZATION        /////////////////
+    //////////////////////////////////////////////////////////////////////////
+
+    GameRules gamerules;
 
     //////////////////////////////////////////////////////////////////////////
     /////////////////            TEXTURES LOADING            /////////////////
@@ -51,23 +31,15 @@ void Game::run(const Config& config) {
 
     Mesh cubeMesh = GenMeshCube(1.0f, 1.0f, 1.0f);
     Model cubeModel = LoadModelFromMesh(cubeMesh);
-    Model cubeModel2 = LoadModelFromMesh(cubeMesh);
-    Model cubeModel3 = LoadModelFromMesh(cubeMesh);
+
     Vector3 cubePosition = { 0.0f, 0.0f, 0.0f };
     
     Image cubeTextureImage = LoadImage(genPath(config.gameDirectory, "assets/textures/blocks/cube_texture.png").c_str());
-    Image cubeTextureImage2 = LoadImage(genPath(config.gameDirectory, "assets/textures/blocks/textures2.png").c_str());
-    Image cubeTextureImage3 = LoadImage(genPath(config.gameDirectory, "assets/textures/blocks/stone.png").c_str());
     Texture2D texture = LoadTextureFromImage(cubeTextureImage);
-    Texture2D texture2 = LoadTextureFromImage(cubeTextureImage2);
-    Texture2D texture3 = LoadTextureFromImage(cubeTextureImage3);
+
     cubeModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
-    cubeModel2.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture2;
-    cubeModel3.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture3;
 
     UnloadImage(cubeTextureImage);
-    UnloadImage(cubeTextureImage2);
-    UnloadImage(cubeTextureImage3);
 
     //////////////////////////////////////////////////////////////////////////
     //////////////////                 CAMERA               //////////////////
@@ -82,12 +54,10 @@ void Game::run(const Config& config) {
 
     int cameraMode = CAMERA_FIRST_PERSON;
 
-    float player_speed = 0.5f;                // TODO: Define a class Entity and create an instance for the player
+    float player_speed = 0.2f;                // TODO: Define a class Entity and create an instance for the player
     Vector3 rotation = {0.0f, 0.0f, 0.0f};
 
     float zoom = GetMouseWheelMove() * 0.5f;
-
-    int ZQSD_or_WASD = 1; // put it on 0 to use WASD and on 1 to use ZQSD
 
     // MENU screen
     float buttonWidth = 200;
@@ -189,44 +159,23 @@ void Game::run(const Config& config) {
                     std::cout << "Chat opened" << std::endl;
                     IsChatOpened = true;
                 }
-                if (ZQSD_or_WASD == 0) {
-                    if (IsKeyDown(KEY_W)) {
-                        movement.x = player_speed;
-                    }
-                    if (IsKeyDown(KEY_S)) {
-                        movement.x = -player_speed;
-                    }
-                    if (IsKeyDown(KEY_D)) {
-                        movement.y = player_speed;
-                    }
-                    if (IsKeyDown(KEY_A)) {
-                        movement.y = -player_speed;
-                    }
-                    if (IsKeyDown(KEY_SPACE)) {
-                        movement.z = player_speed;
-                    }
-                    if (IsKeyDown(KEY_LEFT_SHIFT)) {
-                        movement.z = -player_speed;
-                    }
-                } else if (ZQSD_or_WASD == 1) {
-                    if (IsKeyDown(KEY_Z)) {
-                        movement.x = player_speed;
-                    }
-                    if (IsKeyDown(KEY_S)) {
-                        movement.x = -player_speed;
-                    }
-                    if (IsKeyDown(KEY_Q)) {
-                        movement.y = player_speed;
-                    }
-                    if (IsKeyDown(KEY_D)) {
-                        movement.y = -player_speed;
-                    }
-                    if (IsKeyDown(KEY_SPACE)) {
-                        movement.z = player_speed;
-                    }
-                    if (IsKeyDown(KEY_LEFT_SHIFT)) {
-                        movement.z = -player_speed;
-                    }
+                if (IsKeyDown(KEY_Z)) {
+                    movement.x = player_speed;
+                }
+                if (IsKeyDown(KEY_S)) {
+                    movement.x = -player_speed;
+                }
+                if (IsKeyDown(KEY_Q)) {
+                    movement.y = player_speed;
+                }
+                if (IsKeyDown(KEY_D)) {
+                    movement.y = -player_speed;
+                }
+                if (IsKeyDown(KEY_SPACE)) {
+                    movement.z = player_speed;
+                }
+                if (IsKeyDown(KEY_LEFT_SHIFT)) {
+                    movement.z = -player_speed;
                 }
                 
                 UpdateCameraPro(&camera, movement, rotation, zoom);
@@ -236,10 +185,6 @@ void Game::run(const Config& config) {
                 BeginMode3D(camera);
                 //--------------3D Drawing-----------------------
                 DrawModel(cubeModel, cubePosition, 1.0f, WHITE);
-                DrawModel(cubeModel, (Vector3){2.0f, 2.0f, 2.0f}, 1.0f, WHITE);
-                DrawModel(cubeModel2, (Vector3){2.0f, 3.0f, 2.0f}, 1.0f, WHITE);
-                DrawModel(cubeModel3, (Vector3){2.0f, 4.0f, 2.0f}, 1.0f, WHITE);
-
 
                 if (cameraMode == CAMERA_THIRD_PERSON) {
                     DrawCube(camera.target, 0.5f, 0.5f, 0.5f, PURPLE);

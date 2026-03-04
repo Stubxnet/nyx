@@ -1,5 +1,5 @@
-#ifndef GAME_RULES_HPP
-#define GAME_RULES_HPP
+#ifndef GAME_RULES
+#define GAME_RULES
 
 #include <map>
 #include <string>
@@ -14,11 +14,10 @@ public:
         rules["DoDayLightCycle"] = true;
         rules["LiquidFlows"] = true;
 
-        rules["PlayerDefaultJumpHeight"] = 1.0;
+        rules["PlayerDefaultJumpHeight"] = 1.4;
         rules["PlayerDefaultSpeed"] = 5.0;
         rules["PlayerDefaultBreakingEfficiency"] = 1.0;
-        rules["PlayerDefaultAttackRange"] = 3.0;
-        rules["PlayerDefaultInteractionRange"] = 2.0;
+        rules["PlayerDefaultRange"] = 3.0;
     }
 
     bool getRule(const std::string& rule) const {
@@ -30,4 +29,4 @@ public:
     }
 };
 
-#endif // GAME_RULES_HPP
+#endif // GAME_RULES

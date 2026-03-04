@@ -1,7 +1,8 @@
-#ifndef BLOCK_H
-#define BLOCK_H
+#ifndef BLOCK
+#define BLOCK
 
 #include <string>
+
 #include "raylib.h"
 
 class Block {
@@ -62,4 +63,4 @@ public:
     bool isNatural() const { return natural; }
 };
 
-#endif
+#endif // BLOCK

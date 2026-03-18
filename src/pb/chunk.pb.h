@@ -217,9 +217,9 @@ class Block final : public ::google::protobuf::Message
   // accessors -------------------------------------------------------
   enum : int {
     kPositionFieldNumber = 5,
-    kNamespaceFieldNumber = 2,
     kTextureFieldNumber = 3,
     kDataFieldNumber = 4,
+    kAdditionnalDataFieldNumber = 9,
     kIdFieldNumber = 1,
     kMaterialTypeFieldNumber = 6,
     kResistanceFieldNumber = 7,
@@ -241,21 +241,6 @@ class Block final : public ::google::protobuf::Message
   private:
   const ::google::protobuf::RepeatedField<float>& _internal_position() const;
   ::google::protobuf::RepeatedField<float>* PROTOBUF_NONNULL _internal_mutable_position();
-
-  public:
-  // string namespace = 2;
-  void clear_namespace_() ;
-  const ::std::string& namespace_() const;
-  template <typename Arg_ = const ::std::string&, typename... Args_>
-  void set_namespace_(Arg_&& arg, Args_... args);
-  ::std::string* PROTOBUF_NONNULL mutable_namespace_();
-  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_namespace_();
-  void set_allocated_namespace_(::std::string* PROTOBUF_NULLABLE value);
-
-  private:
-  const ::std::string& _internal_namespace_() const;
-  PROTOBUF_ALWAYS_INLINE void _internal_set_namespace_(const ::std::string& value);
-  ::std::string* PROTOBUF_NONNULL _internal_mutable_namespace_();
 
   public:
   // string texture = 3;
@@ -286,6 +271,21 @@ class Block final : public ::google::protobuf::Message
   const ::std::string& _internal_data() const;
   PROTOBUF_ALWAYS_INLINE void _internal_set_data(const ::std::string& value);
   ::std::string* PROTOBUF_NONNULL _internal_mutable_data();
+
+  public:
+  // string additionnal_data = 9;
+  void clear_additionnal_data() ;
+  const ::std::string& additionnal_data() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_additionnal_data(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_additionnal_data();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_additionnal_data();
+  void set_allocated_additionnal_data(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_additionnal_data() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_additionnal_data(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_additionnal_data();
 
   public:
   // int32 id = 1;
@@ -332,8 +332,8 @@ class Block final : public ::google::protobuf::Message
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<3, 8,
-                                   0, 48,
+  static const ::google::protobuf::internal::TcParseTable<4, 8,
+                                   0, 55,
                                    2>
       _table_;
 
@@ -355,9 +355,9 @@ class Block final : public ::google::protobuf::Message
     ::google::protobuf::internal::HasBits<1> _has_bits_;
     ::google::protobuf::internal::CachedSize _cached_size_;
     ::google::protobuf::RepeatedField<float> position_;
-    ::google::protobuf::internal::ArenaStringPtr namespace__;
     ::google::protobuf::internal::ArenaStringPtr texture_;
     ::google::protobuf::internal::ArenaStringPtr data_;
+    ::google::protobuf::internal::ArenaStringPtr additionnal_data_;
     ::int32_t id_;
     ::int32_t material_type_;
     ::int32_t resistance_;
@@ -662,77 +662,12 @@ inline void Block::_internal_set_id(::int32_t value) {
   _impl_.id_ = value;
 }
 
-// string namespace = 2;
-inline void Block::clear_namespace_() {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  _impl_.namespace__.ClearToEmpty();
-  ClearHasBit(_impl_._has_bits_[0],
-                  0x00000002U);
-}
-inline const ::std::string& Block::namespace_() const
-    ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:world.Block.namespace)
-  return _internal_namespace_();
-}
-template <typename Arg_, typename... Args_>
-PROTOBUF_ALWAYS_INLINE void Block::set_namespace_(Arg_&& arg, Args_... args) {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
-  _impl_.namespace__.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:world.Block.namespace)
-}
-inline ::std::string* PROTOBUF_NONNULL Block::mutable_namespace_()
-    ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
-  ::std::string* _s = _internal_mutable_namespace_();
-  // @@protoc_insertion_point(field_mutable:world.Block.namespace)
-  return _s;
-}
-inline const ::std::string& Block::_internal_namespace_() const {
-  ::google::protobuf::internal::TSanRead(&_impl_);
-  return _impl_.namespace__.Get();
-}
-inline void Block::_internal_set_namespace_(const ::std::string& value) {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  _impl_.namespace__.Set(value, GetArena());
-}
-inline ::std::string* PROTOBUF_NONNULL Block::_internal_mutable_namespace_() {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  return _impl_.namespace__.Mutable( GetArena());
-}
-inline ::std::string* PROTOBUF_NULLABLE Block::release_namespace_() {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:world.Block.namespace)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
-    return nullptr;
-  }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
-  auto* released = _impl_.namespace__.Release();
-  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
-    _impl_.namespace__.Set("", GetArena());
-  }
-  return released;
-}
-inline void Block::set_allocated_namespace_(::std::string* PROTOBUF_NULLABLE value) {
-  ::google::protobuf::internal::TSanWrite(&_impl_);
-  if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
-  } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
-  }
-  _impl_.namespace__.SetAllocated(value, GetArena());
-  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.namespace__.IsDefault()) {
-    _impl_.namespace__.Set("", GetArena());
-  }
-  // @@protoc_insertion_point(field_set_allocated:world.Block.namespace)
-}
-
 // string texture = 3;
 inline void Block::clear_texture() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.texture_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000004U);
+                  0x00000002U);
 }
 inline const ::std::string& Block::texture() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -742,13 +677,13 @@ inline const ::std::string& Block::texture() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void Block::set_texture(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
   _impl_.texture_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:world.Block.texture)
 }
 inline ::std::string* PROTOBUF_NONNULL Block::mutable_texture()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
   ::std::string* _s = _internal_mutable_texture();
   // @@protoc_insertion_point(field_mutable:world.Block.texture)
   return _s;
@@ -768,10 +703,10 @@ inline ::std::string* PROTOBUF_NONNULL Block::_internal_mutable_texture() {
 inline ::std::string* PROTOBUF_NULLABLE Block::release_texture() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:world.Block.texture)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000004U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
   auto* released = _impl_.texture_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.texture_.Set("", GetArena());
@@ -781,9 +716,9 @@ inline ::std::string* PROTOBUF_NULLABLE Block::release_texture() {
 inline void Block::set_allocated_texture(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
   }
   _impl_.texture_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.texture_.IsDefault()) {
@@ -797,7 +732,7 @@ inline void Block::clear_data() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.data_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000008U);
+                  0x00000004U);
 }
 inline const ::std::string& Block::data() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -807,13 +742,13 @@ inline const ::std::string& Block::data() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void Block::set_data(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
   _impl_.data_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:world.Block.data)
 }
 inline ::std::string* PROTOBUF_NONNULL Block::mutable_data()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
   ::std::string* _s = _internal_mutable_data();
   // @@protoc_insertion_point(field_mutable:world.Block.data)
   return _s;
@@ -833,10 +768,10 @@ inline ::std::string* PROTOBUF_NONNULL Block::_internal_mutable_data() {
 inline ::std::string* PROTOBUF_NULLABLE Block::release_data() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:world.Block.data)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000008U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000004U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
   auto* released = _impl_.data_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.data_.Set("", GetArena());
@@ -846,9 +781,9 @@ inline ::std::string* PROTOBUF_NULLABLE Block::release_data() {
 inline void Block::set_allocated_data(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000004U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
   }
   _impl_.data_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.data_.IsDefault()) {
@@ -980,6 +915,71 @@ inline ::int32_t Block::_internal_entities_passable() const {
 inline void Block::_internal_set_entities_passable(::int32_t value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.entities_passable_ = value;
+}
+
+// string additionnal_data = 9;
+inline void Block::clear_additionnal_data() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.additionnal_data_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000008U);
+}
+inline const ::std::string& Block::additionnal_data() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:world.Block.additionnal_data)
+  return _internal_additionnal_data();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void Block::set_additionnal_data(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  _impl_.additionnal_data_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:world.Block.additionnal_data)
+}
+inline ::std::string* PROTOBUF_NONNULL Block::mutable_additionnal_data()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  ::std::string* _s = _internal_mutable_additionnal_data();
+  // @@protoc_insertion_point(field_mutable:world.Block.additionnal_data)
+  return _s;
+}
+inline const ::std::string& Block::_internal_additionnal_data() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.additionnal_data_.Get();
+}
+inline void Block::_internal_set_additionnal_data(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.additionnal_data_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL Block::_internal_mutable_additionnal_data() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.additionnal_data_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE Block::release_additionnal_data() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:world.Block.additionnal_data)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000008U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+  auto* released = _impl_.additionnal_data_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.additionnal_data_.Set("", GetArena());
+  }
+  return released;
+}
+inline void Block::set_allocated_additionnal_data(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+  }
+  _impl_.additionnal_data_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.additionnal_data_.IsDefault()) {
+    _impl_.additionnal_data_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:world.Block.additionnal_data)
 }
 
 // -------------------------------------------------------------------

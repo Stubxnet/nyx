@@ -30,13 +30,13 @@ inline constexpr Block::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : _cached_size_{0},
         position_{},
-        namespace__(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
         texture_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
         data_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        additionnal_data_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
         id_{0},
@@ -107,21 +107,21 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::world::Block, _impl_._has_bits_),
         11, // hasbit index offset
         PROTOBUF_FIELD_OFFSET(::world::Block, _impl_.id_),
-        PROTOBUF_FIELD_OFFSET(::world::Block, _impl_.namespace__),
         PROTOBUF_FIELD_OFFSET(::world::Block, _impl_.texture_),
         PROTOBUF_FIELD_OFFSET(::world::Block, _impl_.data_),
         PROTOBUF_FIELD_OFFSET(::world::Block, _impl_.position_),
         PROTOBUF_FIELD_OFFSET(::world::Block, _impl_.material_type_),
         PROTOBUF_FIELD_OFFSET(::world::Block, _impl_.resistance_),
         PROTOBUF_FIELD_OFFSET(::world::Block, _impl_.entities_passable_),
+        PROTOBUF_FIELD_OFFSET(::world::Block, _impl_.additionnal_data_),
         4,
         1,
         2,
-        3,
         0,
         5,
         6,
         7,
+        3,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::world::Chunk, _impl_._has_bits_),
         7, // hasbit index offset
@@ -146,20 +146,20 @@ static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
 };
 const char descriptor_table_protodef_chunk_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
-    "\n\013chunk.proto\022\005world\"\235\001\n\005Block\022\n\n\002id\030\001 \001"
-    "(\005\022\021\n\tnamespace\030\002 \001(\t\022\017\n\007texture\030\003 \001(\t\022\014"
-    "\n\004data\030\004 \001(\t\022\020\n\010position\030\005 \003(\002\022\025\n\rmateri"
-    "al_type\030\006 \001(\005\022\022\n\nresistance\030\007 \001(\005\022\031\n\021ent"
-    "ities_passable\030\010 \001(\005\"_\n\005Chunk\022\034\n\006blocks\030"
-    "\001 \003(\0132\014.world.Block\022\020\n\010position\030\002 \003(\002\022\r\n"
-    "\005biome\030\003 \001(\t\022\027\n\017additional_data\030\004 \001(\tb\006p"
-    "roto3"
+    "\n\013chunk.proto\022\005world\"\244\001\n\005Block\022\n\n\002id\030\001 \001"
+    "(\005\022\017\n\007texture\030\003 \001(\t\022\014\n\004data\030\004 \001(\t\022\020\n\010pos"
+    "ition\030\005 \003(\002\022\025\n\rmaterial_type\030\006 \001(\005\022\022\n\nre"
+    "sistance\030\007 \001(\005\022\031\n\021entities_passable\030\010 \001("
+    "\005\022\030\n\020additionnal_data\030\t \001(\t\"_\n\005Chunk\022\034\n\006"
+    "blocks\030\001 \003(\0132\014.world.Block\022\020\n\010position\030\002"
+    " \003(\002\022\r\n\005biome\030\003 \001(\t\022\027\n\017additional_data\030\004"
+    " \001(\tb\006proto3"
 };
 static ::absl::once_flag descriptor_table_chunk_2eproto_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_chunk_2eproto = {
     false,
     false,
-    285,
+    292,
     descriptor_table_protodef_chunk_2eproto,
     "chunk.proto",
     &descriptor_table_chunk_2eproto_once,
@@ -199,9 +199,9 @@ PROTOBUF_NDEBUG_INLINE Block::Impl_::Impl_(
       : _has_bits_{from._has_bits_},
         _cached_size_{0},
         position_{visibility, arena, from.position_},
-        namespace__(arena, from.namespace__),
         texture_(arena, from.texture_),
-        data_(arena, from.data_) {}
+        data_(arena, from.data_),
+        additionnal_data_(arena, from.additionnal_data_) {}
 
 Block::Block(
     ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
@@ -231,9 +231,9 @@ PROTOBUF_NDEBUG_INLINE Block::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
       : _cached_size_{0},
         position_{visibility, arena},
-        namespace__(arena),
         texture_(arena),
-        data_(arena) {}
+        data_(arena),
+        additionnal_data_(arena) {}
 
 inline void Block::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
@@ -255,9 +255,9 @@ inline void Block::SharedDtor(MessageLite& self) {
   }
   this_._internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
   ABSL_DCHECK(this_.GetArena() == nullptr);
-  this_._impl_.namespace__.Destroy();
   this_._impl_.texture_.Destroy();
   this_._impl_.data_.Destroy();
+  this_._impl_.additionnal_data_.Destroy();
   this_._impl_.~Impl_();
 }
 
@@ -316,14 +316,14 @@ Block::GetClassData() const {
   return Block_class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<3, 8, 0, 48, 2>
+const ::_pbi::TcParseTable<4, 8, 0, 55, 2>
 Block::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(Block, _impl_._has_bits_),
     0, // no _extensions_
-    8, 56,  // max_field_number, fast_idx_mask
+    9, 120,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967040,  // skipmap
+    4294966786,  // skipmap
     offsetof(decltype(_table_), field_entries),
     8,  // num_field_entries
     0,  // num_aux_entries
@@ -335,25 +335,19 @@ Block::_table_ = {
     ::_pbi::TcParser::GetTable<::world::Block>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // int32 entities_passable = 8;
-    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(Block, _impl_.entities_passable_), 7>(),
-     {64, 7, 0,
-      PROTOBUF_FIELD_OFFSET(Block, _impl_.entities_passable_)}},
+    {::_pbi::TcParser::MiniParse, {}},
     // int32 id = 1;
     {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(Block, _impl_.id_), 4>(),
      {8, 4, 0,
       PROTOBUF_FIELD_OFFSET(Block, _impl_.id_)}},
-    // string namespace = 2;
-    {::_pbi::TcParser::FastUS1,
-     {18, 1, 0,
-      PROTOBUF_FIELD_OFFSET(Block, _impl_.namespace__)}},
+    {::_pbi::TcParser::MiniParse, {}},
     // string texture = 3;
     {::_pbi::TcParser::FastUS1,
-     {26, 2, 0,
+     {26, 1, 0,
       PROTOBUF_FIELD_OFFSET(Block, _impl_.texture_)}},
     // string data = 4;
     {::_pbi::TcParser::FastUS1,
-     {34, 3, 0,
+     {34, 2, 0,
       PROTOBUF_FIELD_OFFSET(Block, _impl_.data_)}},
     // repeated float position = 5;
     {::_pbi::TcParser::FastF32P1,
@@ -367,17 +361,29 @@ Block::_table_ = {
     {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(Block, _impl_.resistance_), 6>(),
      {56, 6, 0,
       PROTOBUF_FIELD_OFFSET(Block, _impl_.resistance_)}},
+    // int32 entities_passable = 8;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(Block, _impl_.entities_passable_), 7>(),
+     {64, 7, 0,
+      PROTOBUF_FIELD_OFFSET(Block, _impl_.entities_passable_)}},
+    // string additionnal_data = 9;
+    {::_pbi::TcParser::FastUS1,
+     {74, 3, 0,
+      PROTOBUF_FIELD_OFFSET(Block, _impl_.additionnal_data_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     65535, 65535
   }}, {{
     // int32 id = 1;
     {PROTOBUF_FIELD_OFFSET(Block, _impl_.id_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
-    // string namespace = 2;
-    {PROTOBUF_FIELD_OFFSET(Block, _impl_.namespace__), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string texture = 3;
-    {PROTOBUF_FIELD_OFFSET(Block, _impl_.texture_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(Block, _impl_.texture_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string data = 4;
-    {PROTOBUF_FIELD_OFFSET(Block, _impl_.data_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(Block, _impl_.data_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // repeated float position = 5;
     {PROTOBUF_FIELD_OFFSET(Block, _impl_.position_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcRepeated | ::_fl::kPackedFloat)},
     // int32 material_type = 6;
@@ -386,14 +392,16 @@ Block::_table_ = {
     {PROTOBUF_FIELD_OFFSET(Block, _impl_.resistance_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
     // int32 entities_passable = 8;
     {PROTOBUF_FIELD_OFFSET(Block, _impl_.entities_passable_), _Internal::kHasBitsOffset + 7, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
+    // string additionnal_data = 9;
+    {PROTOBUF_FIELD_OFFSET(Block, _impl_.additionnal_data_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }},
   // no aux_entries
   {{
-    "\13\0\11\7\4\0\0\0\0\0\0\0\0\0\0\0"
+    "\13\0\7\4\0\0\0\0\20\0\0\0\0\0\0\0"
     "world.Block"
-    "namespace"
     "texture"
     "data"
+    "additionnal_data"
   }},
 };
 PROTOBUF_NOINLINE void Block::Clear() {
@@ -409,13 +417,13 @@ PROTOBUF_NOINLINE void Block::Clear() {
       _impl_.position_.Clear();
     }
     if (CheckHasBit(cached_has_bits, 0x00000002U)) {
-      _impl_.namespace__.ClearNonDefaultToEmpty();
-    }
-    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
       _impl_.texture_.ClearNonDefaultToEmpty();
     }
-    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
       _impl_.data_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+      _impl_.additionnal_data_.ClearNonDefaultToEmpty();
     }
   }
   if (BatchCheckHasBit(cached_has_bits, 0x000000f0U)) {
@@ -455,18 +463,8 @@ PROTOBUF_NOINLINE void Block::Clear() {
     }
   }
 
-  // string namespace = 2;
-  if (CheckHasBit(cached_has_bits, 0x00000002U)) {
-    if (!this_._internal_namespace_().empty()) {
-      const ::std::string& _s = this_._internal_namespace_();
-      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "world.Block.namespace");
-      target = stream->WriteStringMaybeAliased(2, _s, target);
-    }
-  }
-
   // string texture = 3;
-  if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+  if (CheckHasBit(cached_has_bits, 0x00000002U)) {
     if (!this_._internal_texture().empty()) {
       const ::std::string& _s = this_._internal_texture();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
@@ -476,7 +474,7 @@ PROTOBUF_NOINLINE void Block::Clear() {
   }
 
   // string data = 4;
-  if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+  if (CheckHasBit(cached_has_bits, 0x00000004U)) {
     if (!this_._internal_data().empty()) {
       const ::std::string& _s = this_._internal_data();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
@@ -519,6 +517,16 @@ PROTOBUF_NOINLINE void Block::Clear() {
     }
   }
 
+  // string additionnal_data = 9;
+  if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+    if (!this_._internal_additionnal_data().empty()) {
+      const ::std::string& _s = this_._internal_additionnal_data();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "world.Block.additionnal_data");
+      target = stream->WriteStringMaybeAliased(9, _s, target);
+    }
+  }
+
   if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
     target =
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
@@ -555,25 +563,25 @@ PROTOBUF_NOINLINE void Block::Clear() {
                               static_cast<::int32_t>(data_size));
       total_size += tag_size + data_size;
     }
-    // string namespace = 2;
-    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
-      if (!this_._internal_namespace_().empty()) {
-        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
-                                        this_._internal_namespace_());
-      }
-    }
     // string texture = 3;
-    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000002U)) {
       if (!this_._internal_texture().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_texture());
       }
     }
     // string data = 4;
-    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
       if (!this_._internal_data().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_data());
+      }
+    }
+    // string additionnal_data = 9;
+    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+      if (!this_._internal_additionnal_data().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_additionnal_data());
       }
     }
     // int32 id = 1;
@@ -628,15 +636,6 @@ void Block::MergeImpl(::google::protobuf::MessageLite& to_msg,
       _this->_internal_mutable_position()->MergeFrom(from._internal_position());
     }
     if (CheckHasBit(cached_has_bits, 0x00000002U)) {
-      if (!from._internal_namespace_().empty()) {
-        _this->_internal_set_namespace_(from._internal_namespace_());
-      } else {
-        if (_this->_impl_.namespace__.IsDefault()) {
-          _this->_internal_set_namespace_("");
-        }
-      }
-    }
-    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
       if (!from._internal_texture().empty()) {
         _this->_internal_set_texture(from._internal_texture());
       } else {
@@ -645,12 +644,21 @@ void Block::MergeImpl(::google::protobuf::MessageLite& to_msg,
         }
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
       if (!from._internal_data().empty()) {
         _this->_internal_set_data(from._internal_data());
       } else {
         if (_this->_impl_.data_.IsDefault()) {
           _this->_internal_set_data("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+      if (!from._internal_additionnal_data().empty()) {
+        _this->_internal_set_additionnal_data(from._internal_additionnal_data());
+      } else {
+        if (_this->_impl_.additionnal_data_.IsDefault()) {
+          _this->_internal_set_additionnal_data("");
         }
       }
     }
@@ -695,9 +703,9 @@ void Block::InternalSwap(Block* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
   _impl_.position_.InternalSwap(&other->_impl_.position_);
-  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.namespace__, &other->_impl_.namespace__, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.texture_, &other->_impl_.texture_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.data_, &other->_impl_.data_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.additionnal_data_, &other->_impl_.additionnal_data_, arena);
   ::google::protobuf::internal::memswap<
       PROTOBUF_FIELD_OFFSET(Block, _impl_.entities_passable_)
       + sizeof(Block::_impl_.entities_passable_)

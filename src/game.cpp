@@ -14,6 +14,8 @@ void Game::run(const Config& config) {
 
     GameScreen currentScreen = MENU;
 
+    SetExitKey(KEY_NULL);
+
     SetTargetFPS(60);
 
     //////////////////////////////////////////////////////////////////////////
@@ -59,6 +61,13 @@ void Game::run(const Config& config) {
 
     float zoom = GetMouseWheelMove() * 0.5f;
 
+    //-------------------------------------
+    // Vars
+
+    bool IsGamePaused = false;
+    bool IsMouseEnabled = false;
+    bool IsMovementsEnabled = true;
+
     // MENU screen
     float buttonWidth = 200;
     float buttonHeight = 50;
@@ -71,14 +80,22 @@ void Game::run(const Config& config) {
     int f3textsize = GetRenderHeight() / 40;
     int f3textSpacing = f3textsize / 2;
     int f3lineSize = f3textSpacing + f3textsize;
+    // gives space to DrawFPS
+    f3textSpacing += 30;
 
     // F1
     int HideHUD = false;
 
     // Chat
     int IsChatOpened = false;
+    std::string chatContent;
 
     while (!WindowShouldClose()) {
+        if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) && IsKeyDown(KEY_C)) {
+            std::cout << "Pressed Ctrl+C. Exiting." << std::endl;
+            break;
+        }
+        
         switch (currentScreen) {
             case MENU: {
                 float buttonXPlay = GetRenderWidth() / 2 - buttonWidth / 2;
@@ -113,73 +130,122 @@ void Game::run(const Config& config) {
             }
 
             case GAME: {
-                rotation.x = GetMouseDelta().x * 0.1f;
-                rotation.y = GetMouseDelta().y * 0.1f;
+                int key = GetCharPressed();
 
-                Vector3 movement = {0.0f, 0.0f, 0.0f};
-                // ---------- Cursor management
-                if (!IsCursorHidden()) {
-                    DisableCursor();
-                }
-                if (IsKeyPressed(KEY_F3)) {
-                    if (!f3enabled) {
-                        f3enabled = true;
+                if (IsKeyPressed(KEY_ESCAPE)) {
+                    if (IsChatOpened) {
+                        IsChatOpened = false;
+                        chatContent = "";
+                        std::cout << "Chat closed" << std::endl;
                     } else {
-                        f3enabled = false;
+                        if (IsGamePaused) {
+                            IsGamePaused = false;
+                            std::cout << "Game restarted.";
+                            DisableCursor();
+                        } else if (!IsGamePaused) {
+                            IsGamePaused = true;
+                            std::cout << "Game paused.";
+                            ShowCursor();
+                        }
+                    }
+                }
+
+                if (!IsGamePaused) {
+                    rotation.x = GetMouseDelta().x * 0.1f;
+                    rotation.y = GetMouseDelta().y * 0.1f;
+
+                    Vector3 movement = {0.0f, 0.0f, 0.0f};
+                    // ---------- Cursor management
+
+                    if (!IsMouseEnabled) {
+                        if (!IsCursorHidden()) {
+                            DisableCursor();
+                        }
                     }
 
-                }
-                if (IsKeyPressed(KEY_F1)) {
-                    if (!HideHUD) {
-                        HideHUD = true;
-                    } else {
-                        HideHUD = false;
+                    if (IsChatOpened) {
+                        if (IsKeyPressed(KEY_BACKSPACE)) {
+                            if (!chatContent.empty()) {
+                                chatContent.pop_back();
+                            }
+                        } else {
+                            if (key > 0) {
+                                if (key <= 125) {
+                                    chatContent += static_cast<char>(key);
+                                }
+                            }
+
+                        }
+
+                        if (IsKeyPressed(KEY_ENTER)) {
+                            if (!chatContent.empty() && chatContent[0] == '/') {
+                                chatContent = chatContent.substr(1);
+                                std::istringstream iss(chatContent);
+                                std::string command;
+                                iss >> command;
+
+                                if (command == "teleport" || command == "tp") {
+                                    int x, y, z;
+                                    if (!(iss >> x >> y >> z)) {
+                                        std::cout << "Invalid teleport command." << std::endl;
+                                    } else {
+                                        camera.position = { x, y, z };
+                                    }
+                                } else {
+                                    std::cout << "Unknown command." << std::endl;
+                                    chatContent = "";
+                                }
+                            } else {
+                                std::cout << "Message send:" << chatContent << std::endl;
+                                chatContent = "";
+                            }
+                        }
                     }
-                }
-                if (IsKeyPressed(KEY_P)) {
-                    if (camera.projection == CAMERA_PERSPECTIVE) {
-                        cameraMode = CAMERA_THIRD_PERSON;
-                        camera.position = (Vector3){ 0.0f, 2.0f, -100.0f };
-                        camera.target = (Vector3){ 0.0f, 2.0f, 0.0f };
-                        camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
-                        camera.projection = CAMERA_ORTHOGRAPHIC;
-                        camera.fovy = 20.0f;
-                        CameraYaw(&camera, -135 * DEG2RAD, true);
-                        CameraPitch(&camera, -45 * DEG2RAD, true, true, false);
-                    } else if (camera.projection == CAMERA_ORTHOGRAPHIC) {
-                        cameraMode = CAMERA_THIRD_PERSON;
-                        camera.position = (Vector3){ 0.0f, 2.0f, 10.0f };
-                        camera.target = (Vector3){ 0.0f, 2.0f, 0.0f };
-                        camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
-                        camera.projection = CAMERA_PERSPECTIVE;
-                        camera.fovy = 60.0f;
+
+                    if (IsKeyPressed(KEY_F3)) {
+                        if (!f3enabled) {
+                            f3enabled = true;
+                        } else {
+                            f3enabled = false;
+                        }
+
                     }
-                }
-                if (IsKeyPressed(KEY_T)) {
-                    std::cout << "Chat opened" << std::endl;
-                    IsChatOpened = true;
-                }
-                if (IsKeyDown(KEY_Z)) {
-                    movement.x = player_speed;
-                }
-                if (IsKeyDown(KEY_S)) {
-                    movement.x = -player_speed;
-                }
-                if (IsKeyDown(KEY_Q)) {
-                    movement.y = player_speed;
-                }
-                if (IsKeyDown(KEY_D)) {
-                    movement.y = -player_speed;
-                }
-                if (IsKeyDown(KEY_SPACE)) {
-                    movement.z = player_speed;
-                }
-                if (IsKeyDown(KEY_LEFT_SHIFT)) {
-                    movement.z = -player_speed;
-                }
+                    if (IsKeyPressed(KEY_F1)) {
+                        if (!HideHUD) {
+                            HideHUD = true;
+                        } else {
+                            HideHUD = false;
+                        }
+                    }
+                    if (IsKeyPressed(KEY_T)) {
+                        std::cout << "Chat opened" << std::endl;
+                        IsChatOpened = true;
+                    }
+
+                    if (IsMovementsEnabled) {            
+                        if (IsKeyDown(KEY_W)) {
+                            movement.x = player_speed;
+                        }
+                        if (IsKeyDown(KEY_S)) {
+                            movement.x = -player_speed;
+                        }
+                        if (IsKeyDown(KEY_A)) {
+                            movement.y = player_speed;
+                        }
+                        if (IsKeyDown(KEY_D)) {
+                            movement.y = -player_speed;
+                        }
+                        if (IsKeyDown(KEY_SPACE)) {
+                            movement.z = player_speed;
+                        }
+                        if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) {
+                            movement.z = -player_speed;
+                        }
+                    }
                 
-                UpdateCameraPro(&camera, movement, rotation, zoom);
-                
+                    UpdateCameraPro(&camera, movement, rotation, zoom);
+                }
+
                 BeginDrawing();
                 ClearBackground(backgroundColor);
                 BeginMode3D(camera);
@@ -196,13 +262,14 @@ void Game::run(const Config& config) {
                 //-------------------2D Drawing--------------------
 
                 if (f3enabled && !HideHUD) {
+                    DrawFPS(10, 10);
                     DrawText("Nyx build pre-release 1.0.0", 15, f3textSpacing, f3textsize, RAYWHITE);
                     DrawText("Camera controls:", 15, f3textSpacing + f3lineSize, f3textsize, RAYWHITE);
-                    DrawText("- W, A, S, D, Space, Left-Ctrl to move", 15, f3textSpacing + f3lineSize*2, f3textsize, RAYWHITE);
-                    DrawText("- Arrow keys or mouse to look around", 15, f3textSpacing + f3lineSize*3, f3textsize, RAYWHITE);
-                    DrawText("- Camera mode keys: 1, 2, 3, 4", 15, f3textSpacing + f3lineSize*4, f3textsize, RAYWHITE);
-                    DrawText("- Zoom keys: num-plus, num-minus or mouse scroll", 15, f3textSpacing + f3lineSize*5, f3textsize, RAYWHITE);
-                    DrawText("- Camera projection key: P", 15, f3textSpacing + f3lineSize*6, f3textsize, RAYWHITE);
+                    DrawText("W, A, S, D, Space, Left-Ctrl to move", 15, f3textSpacing + f3lineSize*2, f3textsize, RAYWHITE);
+                    DrawText("Arrow keys or mouse to look around", 15, f3textSpacing + f3lineSize*3, f3textsize, RAYWHITE);
+                    DrawText("Camera mode keys: 1, 2, 3, 4", 15, f3textSpacing + f3lineSize*4, f3textsize, RAYWHITE);
+                    DrawText("Zoom keys: num-plus, num-minus or mouse scroll", 15, f3textSpacing + f3lineSize*5, f3textsize, RAYWHITE);
+
                     DrawText("Current camera status:", 610, f3textSpacing, f3textsize, RAYWHITE);
                     DrawText(TextFormat("- Mode: %s", (cameraMode == CAMERA_FREE) ? "FREE" :
                         (cameraMode == CAMERA_FIRST_PERSON) ? "FIRST_PERSON" :
@@ -216,6 +283,14 @@ void Game::run(const Config& config) {
                         camera.target.x, camera.target.y, camera.target.z), 610, f3textSpacing + f3lineSize*4, f3textsize, RAYWHITE);
                     DrawText(TextFormat("- Up: (%06.3f, %06.3f, %06.3f)", 
                         camera.up.x, camera.up.y, camera.up.z), 610, f3textSpacing + f3lineSize*5, f3textsize, RAYWHITE);
+                }
+
+                if (IsChatOpened) {
+                    DrawText(chatContent.c_str(), 15, GetRenderHeight() - 15 - f3textsize, f3textsize, RAYWHITE);
+                }
+
+                if (IsGamePaused) {
+                    DrawText("Game Paused", GetRenderWidth() / 2 - 100, GetRenderHeight() / 2 -  25, 50, RAYWHITE);
                 }
                 EndDrawing();
                 break;

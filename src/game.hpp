@@ -11,6 +11,11 @@
 
 #include "lib/GameRules.hpp"
 #include "lib/Entity.hpp"
+#include "lib/Block.hpp"
+#include "lib/Chunk.hpp"
+#include "lib/World.hpp"
+
+#include "render/3DrenderingUtils.cpp"
 
 int chunk_size = 16;
 

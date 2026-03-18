@@ -23,6 +23,29 @@ void Game::run(const Config& config) {
     //////////////////////////////////////////////////////////////////////////
 
     GameRules gamerules;
+    
+    World currentWorld("My 3D World", { 0.0f, 0.0f, 0.0f });
+
+    for (int x = -1; x <= 1; ++x) {
+        for (int y = -1; y <= 1; ++y) {
+            for (int z = -1; z <= 1; ++z) {
+                auto chunk = std::make_shared<Chunk>();
+                currentWorld.AddChunk(chunk);
+
+                for (int i = 0; i < 16; ++i) {
+                    for (int j = 0; j < 16; ++j) {
+                        for (int k = 0; k < 16; ++k) {
+                            chunk->SetBlockId(i, j, k, 0);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    currentWorld.SetBlockId(2, 2, 2, 5);
+    currentWorld.SetBlockId(2, 3, 2, 5);
+    currentWorld.SetBlockId(2, 4, 2, 5);
 
     //////////////////////////////////////////////////////////////////////////
     /////////////////            TEXTURES LOADING            /////////////////
@@ -250,7 +273,26 @@ void Game::run(const Config& config) {
                 ClearBackground(backgroundColor);
                 BeginMode3D(camera);
                 //--------------3D Drawing-----------------------
+                DrawGrid(10, 1.0f);
                 DrawModel(cubeModel, cubePosition, 1.0f, WHITE);
+
+                for (int chunkIndex = 0; chunkIndex < currentWorld.GetChunkCount(); ++chunkIndex) {
+                    auto chunk = currentWorld.GetChunk(chunkIndex);
+                    if (chunk) {
+                        if (chunkIndex * 16 < 32) {
+                            for (int x = 0; x < 16; ++x) {
+                                for (int y = 0; y < 16; ++y) {
+                                    for (int z = 0; z < 16; ++z) {
+                                        int blockId = currentWorld.GetBlockId(x, y, z);
+                                        if (blockId != 0) {
+                                            DrawCubeTexture(texture, (Vector3){ x, y, z }, 1.0f, 1.0f, 1.0f, WHITE);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
                 if (cameraMode == CAMERA_THIRD_PERSON) {
                     DrawCube(camera.target, 0.5f, 0.5f, 0.5f, PURPLE);

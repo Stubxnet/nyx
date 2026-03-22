@@ -4,6 +4,8 @@
 #include "raylib.h"
 #include "rcamera.h"
 
+#include <cmath>
+
 #include "utils/lib/config.hpp"
 #include "utils/drawingUtils.cpp"
 #include "utils/colors.cpp"

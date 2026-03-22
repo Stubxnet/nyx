@@ -1,6 +1,4 @@
-#ifndef ENTITY
-#define ENTITY
-
+#pragma once
 #include "raylib.h"
 
 #include <string>
@@ -41,7 +39,6 @@ public:
     Vector3 getMotion() const { return motion; }
     EntityType getType() const { return type; }
     Attributes getAttributes() const { return attributes; }
-    Model getModel() const { return model; }
     const std::vector<std::string>& getTextures() const { return textures; }
 
     void setName(const std::string& entityName) { name = entityName; }
@@ -49,11 +46,8 @@ public:
     void setMotion(const Vector3& newMotion) { motion = newMotion; }
     void setType(EntityType entityType) { type = entityType; }
     void setAttributes(Attributes newAttributes) { attributes = newAttributes; }
-    void setModel(const Model& newModel) { model = newModel; }
     
     void addTexture(const std::string& texturePath) {
         textures.push_back(texturePath);
     }
 };
-
-#endif // ENTITY

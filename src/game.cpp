@@ -24,7 +24,7 @@ void Game::run(const Config& config) {
 
     GameRules gamerules;
     
-    World currentWorld("My 3D World", { 0.0f, 0.0f, 0.0f });
+    World currentWorld("Default World", { 0.0f, 0.0f, 0.0f });
 
     for (int x = -1; x <= 1; ++x) {
         for (int y = -1; y <= 1; ++y) {
@@ -54,15 +54,16 @@ void Game::run(const Config& config) {
     Texture2D background = LoadTexture(genPath(config.gameDirectory, 
                   "assets/textures/background/background1920x1080p.png").c_str());
 
-    Mesh cubeMesh = GenMeshCube(1.0f, 1.0f, 1.0f);
-    Model cubeModel = LoadModelFromMesh(cubeMesh);
+    // This method to draw a block with models will probably used for falling blocks
+    //Mesh cubeMesh = GenMeshCube(1.0f, 1.0f, 1.0f);
+    //Model cubeModel = LoadModelFromMesh(cubeMesh);
 
     Vector3 cubePosition = { 0.0f, 0.0f, 0.0f };
     
-    Image cubeTextureImage = LoadImage(genPath(config.gameDirectory, "assets/textures/blocks/cube_texture.png").c_str());
+    Image cubeTextureImage = LoadImage(genPath(config.gameDirectory, "assets/textures/blocks/textures5.png").c_str());
     Texture2D texture = LoadTextureFromImage(cubeTextureImage);
 
-    cubeModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
+    //cubeModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 
     UnloadImage(cubeTextureImage);
 
@@ -86,6 +87,8 @@ void Game::run(const Config& config) {
 
     //-------------------------------------
     // Vars
+
+    int renderDistance = 2;
 
     bool IsGamePaused = false;
     bool IsMouseEnabled = false;
@@ -135,6 +138,7 @@ void Game::run(const Config& config) {
                         currentScreen = OPTIONS;
                     } else if (CheckMousePosition(buttonXPlay, buttonYQuit, buttonWidth, buttonHeight)) {
                         std::cout << "Clicked Quit Game" << std::endl;
+                        UnloadTexture(texture);
                         UnloadTexture(background);
                         CloseWindow();
                     }
@@ -202,8 +206,8 @@ void Game::run(const Config& config) {
 
                         if (IsKeyPressed(KEY_ENTER)) {
                             if (!chatContent.empty() && chatContent[0] == '/') {
-                                chatContent = chatContent.substr(1);
-                                std::istringstream iss(chatContent);
+                                std::string input = chatContent.substr(1);
+                                std::istringstream iss(input);
                                 std::string command;
                                 iss >> command;
 
@@ -212,7 +216,19 @@ void Game::run(const Config& config) {
                                     if (!(iss >> x >> y >> z)) {
                                         std::cout << "Invalid teleport command." << std::endl;
                                     } else {
-                                        camera.position = { x, y, z };
+                                        camera.position = { static_cast<float>(x), static_cast<float>(y), static_cast<float>(z) };
+                                    }
+                                } else if (command == "setblock" || command == "sb") {
+                                    int x, y, z, id;
+                                    if (!(iss >> x >> y >> z >> id)) {
+                                        std::cout << "Invalid setblock command.";
+                                    } else {
+                                        currentWorld.SetBlockId(x, y, z, id);
+                                        if (!currentWorld.GetBlockId(x, y, z) == id) {
+                                            std::cout << "Error placing block at " << x << y << z << std::endl;
+                                        } else {
+                                            std::cout << "Block successfully placed at " << x << y << z << std::endl;
+                                        }
                                     }
                                 } else {
                                     std::cout << "Unknown command." << std::endl;
@@ -274,7 +290,6 @@ void Game::run(const Config& config) {
                 BeginMode3D(camera);
                 //--------------3D Drawing-----------------------
                 DrawGrid(10, 1.0f);
-                DrawModel(cubeModel, cubePosition, 1.0f, WHITE);
 
                 for (int chunkIndex = 0; chunkIndex < currentWorld.GetChunkCount(); ++chunkIndex) {
                     auto chunk = currentWorld.GetChunk(chunkIndex);
@@ -285,7 +300,7 @@ void Game::run(const Config& config) {
                                     for (int z = 0; z < 16; ++z) {
                                         int blockId = currentWorld.GetBlockId(x, y, z);
                                         if (blockId != 0) {
-                                            DrawCubeTexture(texture, (Vector3){ x, y, z }, 1.0f, 1.0f, 1.0f, WHITE);
+                                            DrawCubeTexture(texture, (Vector3){ x, y, z}, 1.0f, 1.0f, 1.0f, true, true, true, true, true, true, WHITE);
                                         }
                                     }
                                 }
@@ -307,9 +322,9 @@ void Game::run(const Config& config) {
                     DrawFPS(10, 10);
                     DrawText("Nyx build pre-release 1.0.0", 15, f3textSpacing, f3textsize, RAYWHITE);
                     DrawText("Camera controls:", 15, f3textSpacing + f3lineSize, f3textsize, RAYWHITE);
-                    DrawText("W, A, S, D, Space, Left-Ctrl to move", 15, f3textSpacing + f3lineSize*2, f3textsize, RAYWHITE);
+                    DrawText("W, A, S, D, Space, Shift to move", 15, f3textSpacing + f3lineSize*2, f3textsize, RAYWHITE);
                     DrawText("Arrow keys or mouse to look around", 15, f3textSpacing + f3lineSize*3, f3textsize, RAYWHITE);
-                    DrawText("Camera mode keys: 1, 2, 3, 4", 15, f3textSpacing + f3lineSize*4, f3textsize, RAYWHITE);
+                    DrawText("T to open chat", 15, f3textSpacing + f3lineSize*4, f3textsize, RAYWHITE);
                     DrawText("Zoom keys: num-plus, num-minus or mouse scroll", 15, f3textSpacing + f3lineSize*5, f3textsize, RAYWHITE);
 
                     DrawText("Current camera status:", 610, f3textSpacing, f3textsize, RAYWHITE);
@@ -349,7 +364,7 @@ void Game::run(const Config& config) {
 
                     if (CheckMousePosition(buttonX1, buttonY, buttonWidth, buttonHeight)) {
                         std::cout << "Clicked Quit Game" << std::endl;
-                        UnloadModel(cubeModel);
+                        UnloadTexture(texture);
                         UnloadTexture(background);
                         CloseWindow();
                     } else if (CheckMousePosition(buttonX2, buttonY, buttonWidth, buttonHeight)) {
@@ -369,7 +384,8 @@ void Game::run(const Config& config) {
         }
     }
 
-    UnloadModel(cubeModel);
+    //UnloadModel(cubeModel);
+    UnloadTexture(texture);
     UnloadTexture(background);
     CloseWindow();
 }

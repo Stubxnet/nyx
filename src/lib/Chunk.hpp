@@ -1,6 +1,4 @@
-#ifndef CHUNK
-#define CHUNK
-
+#pragma once
 #include <memory>
 #include <array>
 #include "Block.hpp"
@@ -42,5 +40,3 @@ private:
         return (x >= 0 && x < 16 && y >= 0 && y < 16 && z >= 0 && z < 16);
     }
 };
-
-#endif

@@ -3,32 +3,37 @@
 #include <array>
 #include "Block.hpp"
 
+constexpr int CHUNK_SIZE = 16;
+
 class Chunk {
 public:
-    Chunk() {
+    Chunk(int cx = 0, int cy = 0, int cz = 0) : cx(cx), cy(cy), cz(cz) {
         InitializeBlocks();
     }
 
     std::shared_ptr<Block> GetBlock(int x, int y, int z) const {
-        if (IsValidPosition(x, y, z)) {
-            return blocks[x][y][z];
-        }
+        if (IsValidLocalPosition(x, y, z)) return blocks[x][y][z];
         return nullptr;
     }
 
     void SetBlockId(int x, int y, int z, int newId) {
-        if (IsValidPosition(x, y, z) && blocks[x][y][z] != nullptr) {
+        if (IsValidLocalPosition(x, y, z) && blocks[x][y][z]) {
             blocks[x][y][z]->SetId(newId);
         }
     }
 
+    int GetChunkX() const { return cx; }
+    int GetChunkY() const { return cy; }
+    int GetChunkZ() const { return cz; }
+
 private:
-    std::array<std::array<std::array<std::shared_ptr<Block>, 16>, 16>, 16> blocks;
+    std::array<std::array<std::array<std::shared_ptr<Block>, CHUNK_SIZE>, CHUNK_SIZE>, CHUNK_SIZE> blocks;
+    int cx, cy, cz;
 
     void InitializeBlocks() {
-        for (int x = 0; x < 16; ++x) {
-            for (int y = 0; y < 16; ++y) {
-                for (int z = 0; z < 16; ++z) {
+        for (int x = 0; x < CHUNK_SIZE; ++x) {
+            for (int y = 0; y < CHUNK_SIZE; ++y) {
+                for (int z = 0; z < CHUNK_SIZE; ++z) {
                     Vector3 position = {static_cast<float>(x), static_cast<float>(y), static_cast<float>(z)};
                     blocks[x][y][z] = std::make_shared<Block>(position, 0);
                 }
@@ -36,7 +41,7 @@ private:
         }
     }
 
-    bool IsValidPosition(int x, int y, int z) const {
-        return (x >= 0 && x < 16 && y >= 0 && y < 16 && z >= 0 && z < 16);
+    bool IsValidLocalPosition(int x, int y, int z) const {
+        return (x >= 0 && x < CHUNK_SIZE && y >= 0 && y < CHUNK_SIZE && z >= 0 && z < CHUNK_SIZE);
     }
 };

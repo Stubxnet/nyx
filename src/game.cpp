@@ -2,8 +2,6 @@
 
 enum GameScreen { MENU, GAME, OPTIONS };
 
-const int CHUNK_SIZE = 16;
-
 void Game::init() {
     // TODO: use this initialization function
 }
@@ -24,21 +22,18 @@ void Game::run(const Config& config) {
 
     GameRules gamerules;
     
-    World currentWorld("Default World", { 0.0f, 0.0f, 0.0f });
+    World currentWorld("Default World", {0.0f, 0.0f, 0.0f});
+    int range = 1;
 
-    for (int x = -1; x <= 1; ++x) {
-        for (int y = -1; y <= 1; ++y) {
-            for (int z = -1; z <= 1; ++z) {
-                auto chunk = std::make_shared<Chunk>();
+    for (int cx = -range; cx <= range; ++cx) {
+        for (int cy = -range; cy <= range; ++cy) {
+            for (int cz = -range; cz <= range; ++cz) {
+                auto chunk = std::make_shared<Chunk>(cx, cy, cz);
                 currentWorld.AddChunk(chunk);
-
-                for (int i = 0; i < 16; ++i) {
-                    for (int j = 0; j < 16; ++j) {
-                        for (int k = 0; k < 16; ++k) {
+                for (int i = 0; i < CHUNK_SIZE; ++i)
+                    for (int j = 0; j < CHUNK_SIZE; ++j)
+                        for (int k = 0; k < CHUNK_SIZE; ++k)
                             chunk->SetBlockId(i, j, k, 0);
-                        }
-                    }
-                }
             }
         }
     }
@@ -84,6 +79,8 @@ void Game::run(const Config& config) {
     Vector3 rotation = {0.0f, 0.0f, 0.0f};
 
     float zoom = GetMouseWheelMove() * 0.5f;
+    
+    Vector3 camPos = camera.position;
 
     //-------------------------------------
     // Vars
@@ -282,6 +279,12 @@ void Game::run(const Config& config) {
                         }
                     }
                 
+                    //if (IsKeyPressed(MOUSE_LEFT_BUTTON)) {
+                    //    Vector2 screenCenter = { GetScreenWidth()/2.0f, GetScreenHeight()/2.0f };
+                    //    Ray ray = GetMouseRay(screenCenter, camera);
+
+                    //}
+
                     UpdateCameraPro(&camera, movement, rotation, zoom);
                 }
 
@@ -291,17 +294,45 @@ void Game::run(const Config& config) {
                 //--------------3D Drawing-----------------------
                 DrawGrid(10, 1.0f);
 
-                for (int chunkIndex = 0; chunkIndex < currentWorld.GetChunkCount(); ++chunkIndex) {
-                    auto chunk = currentWorld.GetChunk(chunkIndex);
-                    if (chunk) {
-                        if (chunkIndex * 16 < 32) {
-                            for (int x = 0; x < 16; ++x) {
-                                for (int y = 0; y < 16; ++y) {
-                                    for (int z = 0; z < 16; ++z) {
-                                        int blockId = currentWorld.GetBlockId(x, y, z);
-                                        if (blockId != 0) {
-                                            DrawCubeTexture(texture, (Vector3){ x, y, z}, 1.0f, 1.0f, 1.0f, true, true, true, true, true, true, WHITE);
-                                        }
+                int wx = (int)floorf(camPos.x);
+                int wy = (int)floorf(camPos.y);
+                int wz = (int)floorf(camPos.z);
+
+                auto [camCx, camLx] = World::WorldToChunkAndLocal(wx);
+                auto [camCy, camLy] = World::WorldToChunkAndLocal(wy);
+                auto [camCz, camLz] = World::WorldToChunkAndLocal(wz);
+
+                for (int dx = -renderDistance; dx <= renderDistance; ++dx) {
+                    for (int dy = -renderDistance; dy <= renderDistance; ++dy) {
+                        for (int dz = -renderDistance; dz <= renderDistance; ++dz) {
+                            int cx = camCx + dx;
+                            int cy = camCy + dy;
+                            int cz = camCz + dz;
+                            auto chunk = currentWorld.GetChunkAt(cx, cy, cz);
+                            if (!chunk) continue;
+
+                            for (int lx = 0; lx < CHUNK_SIZE; ++lx) {
+                                for (int ly = 0; ly < CHUNK_SIZE; ++ly) {
+                                    for (int lz = 0; lz < CHUNK_SIZE; ++lz) {
+                                        int worldX = cx * CHUNK_SIZE + lx;
+                                        int worldY = cy * CHUNK_SIZE + ly;
+                                        int worldZ = cz * CHUNK_SIZE + lz;
+
+                                        int blockId = currentWorld.GetBlockId(worldX, worldY, worldZ);
+                                        if (blockId == 0) continue;
+
+                                        bool drawFront  = currentWorld.IsBlockTransparent(worldX,     worldY,     worldZ+1);
+                                        bool drawBack   = currentWorld.IsBlockTransparent(worldX,     worldY,     worldZ-1);
+                                        bool drawTop    = currentWorld.IsBlockTransparent(worldX,     worldY+1,   worldZ);
+                                        bool drawBottom = currentWorld.IsBlockTransparent(worldX,     worldY-1,   worldZ);
+                                        bool drawRight  = currentWorld.IsBlockTransparent(worldX+1,   worldY,     worldZ);
+                                        bool drawLeft   = currentWorld.IsBlockTransparent(worldX-1,   worldY,     worldZ);
+
+                                        if (!(drawFront||drawBack||drawTop||drawBottom||drawRight||drawLeft)) continue;
+
+                                        Vector3 pos = { (float)worldX, (float)worldY, (float)worldZ };
+                                        DrawCubeTexture(texture, pos, 1.0f, 1.0f, 1.0f,
+                                            drawFront, drawBack, drawTop, drawBottom, drawRight, drawLeft, WHITE);
                                     }
                                 }
                             }

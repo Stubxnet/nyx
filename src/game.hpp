@@ -10,14 +10,16 @@
 #include "utils/drawingUtils.cpp"
 #include "utils/colors.cpp"
 #include "utils/ioutils.cpp"
+#include "utils/Collisions.cpp"
 
+#include "lib/GameMode.hpp"
 #include "lib/GameRules.hpp"
 #include "lib/Entity.hpp"
 #include "lib/Block.hpp"
 #include "lib/Chunk.hpp"
 #include "lib/World.hpp"
 
-#include "render/3DrenderingUtils.cpp"
+#include "render/renderutils.cpp"
 
 int chunk_size = 16;
 

@@ -6,10 +6,10 @@ Actually it is FULL of bugs and there is dead code everywhere, but it's because 
 
 ## Build instructions
 ```bash
-cmake .
+cd build && cmake ..
 ```
 ```bash
-cd build && make
+make
 ```
 
 ## Installation instructions
@@ -19,17 +19,8 @@ There is actually **NO** installation instructions !
 
 ## Contributing
 
-What ?? You want to contribute ??
-What a madness !
-
-Simply...
-Submit a pull request...
-With good code ; of course !
+When someone wants to contribute, we'll see.
 
 ## License
 
 ### GNU GPL-3.0
-=======
-# nyx
-A small voxel video game project, coded with C++ and raylib
->>>>>>> d8d57196aef7229341b157ea556b0e6b308dfd42

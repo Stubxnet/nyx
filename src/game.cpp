@@ -21,7 +21,10 @@ void Game::run(const Config& config) {
     //////////////////////////////////////////////////////////////////////////
 
     GameRules gamerules;
-    
+
+    GameModes gamemode;
+    gamemode = CREATIVE;
+
     World currentWorld("Default World", {0.0f, 0.0f, 0.0f});
     int range = 1;
 
@@ -38,9 +41,17 @@ void Game::run(const Config& config) {
         }
     }
 
-    currentWorld.SetBlockId(2, 2, 2, 5);
-    currentWorld.SetBlockId(2, 3, 2, 5);
-    currentWorld.SetBlockId(2, 4, 2, 5);
+    currentWorld.SetBlockId(0, 0, 0, 1);
+    currentWorld.SetBlockId(1, 0, 0, 1);
+    currentWorld.SetBlockId(0, 0, 1, 1);
+    currentWorld.SetBlockId(1, 0, 1, 1);
+    currentWorld.SetBlockId(1, 0, 1, 1);
+    currentWorld.SetBlockId(-1, 0, 0, 1);
+    currentWorld.SetBlockId(0, 0, -1, 1);
+    currentWorld.SetBlockId(-1, 0, -1, 1);
+    currentWorld.SetBlockId(-1, 0, 1, 1);
+    currentWorld.SetBlockId(1, 0, -1, 1);
+
 
     //////////////////////////////////////////////////////////////////////////
     /////////////////            TEXTURES LOADING            /////////////////
@@ -79,8 +90,6 @@ void Game::run(const Config& config) {
     Vector3 rotation = {0.0f, 0.0f, 0.0f};
 
     float zoom = GetMouseWheelMove() * 0.5f;
-    
-    Vector3 camPos = camera.position;
 
     //-------------------------------------
     // Vars
@@ -103,8 +112,8 @@ void Game::run(const Config& config) {
     int f3textsize = GetRenderHeight() / 40;
     int f3textSpacing = f3textsize / 2;
     int f3lineSize = f3textSpacing + f3textsize;
-    // gives space to DrawFPS
-    f3textSpacing += 30;
+    Color fpsColor = GREEN;
+    int currentFPS = 0;
 
     // F1
     int HideHUD = false;
@@ -156,10 +165,13 @@ void Game::run(const Config& config) {
             case GAME: {
                 int key = GetCharPressed();
 
+                Vector3 camPos = camera.position;
+
                 if (IsKeyPressed(KEY_ESCAPE)) {
                     if (IsChatOpened) {
                         IsChatOpened = false;
                         chatContent = "";
+                        IsMovementsEnabled = true;
                         std::cout << "Chat closed" << std::endl;
                     } else {
                         if (IsGamePaused) {
@@ -221,20 +233,65 @@ void Game::run(const Config& config) {
                                         std::cout << "Invalid setblock command.";
                                     } else {
                                         currentWorld.SetBlockId(x, y, z, id);
-                                        if (!currentWorld.GetBlockId(x, y, z) == id) {
+                                        if (currentWorld.GetBlockId(x,y,z) != id) {
                                             std::cout << "Error placing block at " << x << y << z << std::endl;
                                         } else {
                                             std::cout << "Block successfully placed at " << x << y << z << std::endl;
                                         }
                                     }
+                                } else if (command == "fill") {
+                                    int x1, y1, z1, x2, y2, z2, id;
+                                    std::string mode = "replace";
+                                    int placed = 0;
+
+                                    if (!(iss >> x1 >> y1 >> z1 >> x2 >> y2 >> z2 >> id)) {
+                                        std::cout << "Invalid fill command. Usage: /fill x1 y1 z1 x2 y2 z2 id [replace|keep]" << std::endl;
+                                    } else {
+                                        int minX = std::min(x1, x2);
+                                        int maxX = std::max(x1, x2);
+                                        int minY = std::min(y1, y2);
+                                        int maxY = std::max(y1, y2);
+                                        int minZ = std::min(z1, z2);
+                                        int maxZ = std::max(z1, z2);
+
+                                        const int MAX_VOLUME = 20000;
+                                        long long vol = (long long)(maxX - minX + 1) * (maxY - minY + 1) * (maxZ - minZ + 1);
+                                        if (vol <= 0 || vol > MAX_VOLUME) {
+                                            std::cout << "Fill area too large or invalid (" << vol << " blocks). Aborted." << std::endl;
+                                        } else {
+                                            for (int xi = minX; xi <= maxX; ++xi) {
+                                                for (int yi = minY; yi <= maxY; ++yi) {
+                                                    for (int zi = minZ; zi <= maxZ; ++zi) {
+                                                        int currentId = currentWorld.GetBlockId(xi, yi, zi);
+                                                        bool doPlace = false;
+                                                        if (mode == "keep") {
+                                                            if (currentId == 0) doPlace = true;
+                                                        } else { // replace (default)
+                                                            doPlace = true;
+                                                        }
+
+                                                        if (doPlace) {
+                                                            currentWorld.SetBlockId(xi, yi, zi, id);
+                                                            if (currentWorld.GetBlockId(xi, yi, zi) == id) {
+                                                                ++placed;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    std::cout << "Filled area with id " << id << ". Blocks placed: " << placed << std::endl;
+                                
                                 } else {
                                     std::cout << "Unknown command." << std::endl;
-                                    chatContent = "";
                                 }
                             } else {
                                 std::cout << "Message send:" << chatContent << std::endl;
-                                chatContent = "";
                             }
+                            chatContent = "";
+                            IsChatOpened = false;
+                            IsMovementsEnabled = true;
                         }
                     }
 
@@ -255,6 +312,7 @@ void Game::run(const Config& config) {
                     }
                     if (IsKeyPressed(KEY_T)) {
                         std::cout << "Chat opened" << std::endl;
+                        IsMovementsEnabled = false;
                         IsChatOpened = true;
                     }
 
@@ -294,6 +352,7 @@ void Game::run(const Config& config) {
                 //--------------3D Drawing-----------------------
                 DrawGrid(10, 1.0f);
 
+                // get camera position in int
                 int wx = (int)floorf(camPos.x);
                 int wy = (int)floorf(camPos.y);
                 int wz = (int)floorf(camPos.z);
@@ -350,27 +409,35 @@ void Game::run(const Config& config) {
                 //-------------------2D Drawing--------------------
 
                 if (f3enabled && !HideHUD) {
-                    DrawFPS(10, 10);
-                    DrawText("Nyx build pre-release 1.0.0", 15, f3textSpacing, f3textsize, RAYWHITE);
-                    DrawText("Camera controls:", 15, f3textSpacing + f3lineSize, f3textsize, RAYWHITE);
-                    DrawText("W, A, S, D, Space, Shift to move", 15, f3textSpacing + f3lineSize*2, f3textsize, RAYWHITE);
-                    DrawText("Arrow keys or mouse to look around", 15, f3textSpacing + f3lineSize*3, f3textsize, RAYWHITE);
-                    DrawText("T to open chat", 15, f3textSpacing + f3lineSize*4, f3textsize, RAYWHITE);
-                    DrawText("Zoom keys: num-plus, num-minus or mouse scroll", 15, f3textSpacing + f3lineSize*5, f3textsize, RAYWHITE);
+                    currentFPS = GetFPS();
+                    if (currentFPS < 20) {
+                        fpsColor = ORANGE;
+                    } else if (currentFPS < 10) {
+                        fpsColor = RED;
+                    } else {
+                        fpsColor = GREEN;
+                    }
+                    DrawText(TextFormat("FPS: %i (Target: 60)", GetFPS()), 15, f3textSpacing, f3textsize, fpsColor);
+                    DrawText("Nyx build pre-release 1.0.0", 15, f3textSpacing + f3lineSize, f3textsize, RAYWHITE);
+                    DrawText("Camera controls:", 15, f3textSpacing + f3lineSize*2, f3textsize, RAYWHITE);
+                    DrawText("W, A, S, D, Space, Shift to move", 15, f3textSpacing + f3lineSize*3, f3textsize, RAYWHITE);
+                    DrawText("Arrow keys or mouse to look around", 15, f3textSpacing + f3lineSize*4, f3textsize, RAYWHITE);
+                    DrawText("T to open chat", 15, f3textSpacing + f3lineSize*5, f3textsize, RAYWHITE);
+                    DrawText("Zoom keys: num-plus, num-minus or mouse scroll", 15, f3textSpacing + f3lineSize*6, f3textsize, RAYWHITE);
 
-                    DrawText("Current camera status:", 610, f3textSpacing, f3textsize, RAYWHITE);
+                    DrawText("Current camera status:", 15, f3textSpacing + f3lineSize*7, f3textsize, RAYWHITE);
                     DrawText(TextFormat("- Mode: %s", (cameraMode == CAMERA_FREE) ? "FREE" :
                         (cameraMode == CAMERA_FIRST_PERSON) ? "FIRST_PERSON" :
                         (cameraMode == CAMERA_THIRD_PERSON) ? "THIRD_PERSON" :
-                        (cameraMode == CAMERA_ORBITAL) ? "ORBITAL" : "CUSTOM"), 610, f3textSpacing + f3lineSize, f3textsize, RAYWHITE);
+                        (cameraMode == CAMERA_ORBITAL) ? "ORBITAL" : "CUSTOM"), 15, f3textSpacing + f3lineSize*8, f3textsize, RAYWHITE);
                     DrawText(TextFormat("- Projection: %s", (camera.projection == CAMERA_PERSPECTIVE) ? "PERSPECTIVE" :
-                        (camera.projection == CAMERA_ORTHOGRAPHIC) ? "ORTHOGRAPHIC" : "CUSTOM"), 610, f3textSpacing + f3lineSize*2, f3textsize, RAYWHITE);
+                        (camera.projection == CAMERA_ORTHOGRAPHIC) ? "ORTHOGRAPHIC" : "CUSTOM"), 15, f3textSpacing + f3lineSize*9, f3textsize, RAYWHITE);
                     DrawText(TextFormat("- Position: (%06.3f, %06.3f, %06.3f)", 
-                        camera.position.x, camera.position.y, camera.position.z), 610, f3textSpacing + f3lineSize*3, f3textsize, RAYWHITE);
+                        camera.position.x, camera.position.y, camera.position.z), 15, f3textSpacing + f3lineSize*10, f3textsize, RAYWHITE);
                     DrawText(TextFormat("- Target: (%06.3f, %06.3f, %06.3f)", 
-                        camera.target.x, camera.target.y, camera.target.z), 610, f3textSpacing + f3lineSize*4, f3textsize, RAYWHITE);
+                        camera.target.x, camera.target.y, camera.target.z), 15, f3textSpacing + f3lineSize*11, f3textsize, RAYWHITE);
                     DrawText(TextFormat("- Up: (%06.3f, %06.3f, %06.3f)", 
-                        camera.up.x, camera.up.y, camera.up.z), 610, f3textSpacing + f3lineSize*5, f3textsize, RAYWHITE);
+                        camera.up.x, camera.up.y, camera.up.z), 15, f3textSpacing + f3lineSize*12, f3textsize, RAYWHITE);
                 }
 
                 if (IsChatOpened) {

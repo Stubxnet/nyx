@@ -108,11 +108,12 @@ void Game::run(const Config& config) {
     //----------- HUD-related functions-------------
 
     // F3
-    bool f3enabled = false;
+    bool f3enabled = true;
     int f3textsize = GetRenderHeight() / 40;
     int f3textSpacing = f3textsize / 2;
     int f3lineSize = f3textSpacing + f3textsize;
     Color fpsColor = GREEN;
+    Color f3color = RAYWHITE;
     int currentFPS = 0;
 
     // F1
@@ -163,6 +164,9 @@ void Game::run(const Config& config) {
             }
 
             case GAME: {
+                int chunksCount = static_cast<int>(currentWorld.GetChunkCount());
+                int solidBlocksCount = 0;
+
                 int key = GetCharPressed();
 
                 Vector3 camPos = camera.position;
@@ -221,16 +225,37 @@ void Game::run(const Config& config) {
                                 iss >> command;
 
                                 if (command == "teleport" || command == "tp") {
-                                    int x, y, z;
+                                    float x, y, z;
                                     if (!(iss >> x >> y >> z)) {
                                         std::cout << "Invalid teleport command." << std::endl;
                                     } else {
-                                        camera.position = { static_cast<float>(x), static_cast<float>(y), static_cast<float>(z) };
+                                        camera.position = { x, y, z };
+                                    }
+                                } else if (command == "rotation" || command == "rt") {
+                                    float x, y, z;
+                                    if(!(iss >> x >> y >> z)) {
+                                        std::cout << "Invalid rotation command." << std::endl;
+                                    } else {
+                                        camera.target = { x, y, z };
+                                    }
+                                } else if (command == "fov") {
+                                    float fov;
+                                    if (!(iss >> fov)) {
+                                        std::cout << "Invalid fov command." << std::endl;
+                                    } else {
+                                        camera.fovy = fov;
+                                    }
+                                } else if (command == "renderdistance" || command == "rd") {
+                                    int rd;
+                                    if (!(iss >> rd)) {
+                                        std::cout << "Invalid renderdistance command." << std::endl;
+                                    } else {
+                                        renderDistance = rd;
                                     }
                                 } else if (command == "setblock" || command == "sb") {
                                     int x, y, z, id;
                                     if (!(iss >> x >> y >> z >> id)) {
-                                        std::cout << "Invalid setblock command.";
+                                        std::cout << "Invalid setblock command." << std::endl;
                                     } else {
                                         currentWorld.SetBlockId(x, y, z, id);
                                         if (currentWorld.GetBlockId(x,y,z) != id) {
@@ -350,7 +375,7 @@ void Game::run(const Config& config) {
                 ClearBackground(backgroundColor);
                 BeginMode3D(camera);
                 //--------------3D Drawing-----------------------
-                DrawGrid(10, 1.0f);
+                DrawGrid(50, 1.0f);
 
                 // get camera position in int
                 int wx = (int)floorf(camPos.x);
@@ -369,6 +394,7 @@ void Game::run(const Config& config) {
                             int cz = camCz + dz;
                             auto chunk = currentWorld.GetChunkAt(cx, cy, cz);
                             if (!chunk) continue;
+                            if (chunk->IsChunkEmpty()) continue; // skip empty chunks
 
                             for (int lx = 0; lx < CHUNK_SIZE; ++lx) {
                                 for (int ly = 0; ly < CHUNK_SIZE; ++ly) {
@@ -379,6 +405,7 @@ void Game::run(const Config& config) {
 
                                         int blockId = currentWorld.GetBlockId(worldX, worldY, worldZ);
                                         if (blockId == 0) continue;
+                                        solidBlocksCount++;
 
                                         bool drawFront  = currentWorld.IsBlockTransparent(worldX,     worldY,     worldZ+1);
                                         bool drawBack   = currentWorld.IsBlockTransparent(worldX,     worldY,     worldZ-1);
@@ -400,8 +427,8 @@ void Game::run(const Config& config) {
                 }
 
                 if (cameraMode == CAMERA_THIRD_PERSON) {
-                    DrawCube(camera.target, 0.5f, 0.5f, 0.5f, PURPLE);
-                    DrawCubeWires(camera.target, 0.5f, 0.5f, 0.5f, DARKPURPLE);
+                    DrawCube(camera.target, 0.5f, 0.5f, 0.5f, RED);
+                    DrawCubeWires(camera.target, 0.5f, 0.5f, 0.5f, RAYWHITE);
                 }
 
                 EndMode3D();
@@ -418,26 +445,29 @@ void Game::run(const Config& config) {
                         fpsColor = GREEN;
                     }
                     DrawText(TextFormat("FPS: %i (Target: 60)", GetFPS()), 15, f3textSpacing, f3textsize, fpsColor);
-                    DrawText("Nyx build pre-release 1.0.0", 15, f3textSpacing + f3lineSize, f3textsize, RAYWHITE);
-                    DrawText("Camera controls:", 15, f3textSpacing + f3lineSize*2, f3textsize, RAYWHITE);
-                    DrawText("W, A, S, D, Space, Shift to move", 15, f3textSpacing + f3lineSize*3, f3textsize, RAYWHITE);
-                    DrawText("Arrow keys or mouse to look around", 15, f3textSpacing + f3lineSize*4, f3textsize, RAYWHITE);
-                    DrawText("T to open chat", 15, f3textSpacing + f3lineSize*5, f3textsize, RAYWHITE);
-                    DrawText("Zoom keys: num-plus, num-minus or mouse scroll", 15, f3textSpacing + f3lineSize*6, f3textsize, RAYWHITE);
+                    DrawText("Nyx build pre-release 1.0.0", 15, f3textSpacing + f3lineSize, f3textsize, f3color);
+                    DrawText("Camera controls:", 15, f3textSpacing + f3lineSize*2, f3textsize, f3color);
+                    DrawText("W, A, S, D, Space, Shift to move", 15, f3textSpacing + f3lineSize*3, f3textsize, f3color);
+                    DrawText("Arrow keys or mouse to look around", 15, f3textSpacing + f3lineSize*4, f3textsize, f3color);
+                    DrawText("T to open chat", 15, f3textSpacing + f3lineSize*5, f3textsize, f3color);
+                    DrawText("Zoom keys: num-plus, num-minus or mouse scroll", 15, f3textSpacing + f3lineSize*6, f3textsize, f3color);
 
-                    DrawText("Current camera status:", 15, f3textSpacing + f3lineSize*7, f3textsize, RAYWHITE);
+                    DrawText("Current camera status:", 15, f3textSpacing + f3lineSize*7, f3textsize, f3color);
                     DrawText(TextFormat("- Mode: %s", (cameraMode == CAMERA_FREE) ? "FREE" :
                         (cameraMode == CAMERA_FIRST_PERSON) ? "FIRST_PERSON" :
                         (cameraMode == CAMERA_THIRD_PERSON) ? "THIRD_PERSON" :
-                        (cameraMode == CAMERA_ORBITAL) ? "ORBITAL" : "CUSTOM"), 15, f3textSpacing + f3lineSize*8, f3textsize, RAYWHITE);
-                    DrawText(TextFormat("- Projection: %s", (camera.projection == CAMERA_PERSPECTIVE) ? "PERSPECTIVE" :
-                        (camera.projection == CAMERA_ORTHOGRAPHIC) ? "ORTHOGRAPHIC" : "CUSTOM"), 15, f3textSpacing + f3lineSize*9, f3textsize, RAYWHITE);
-                    DrawText(TextFormat("- Position: (%06.3f, %06.3f, %06.3f)", 
-                        camera.position.x, camera.position.y, camera.position.z), 15, f3textSpacing + f3lineSize*10, f3textsize, RAYWHITE);
-                    DrawText(TextFormat("- Target: (%06.3f, %06.3f, %06.3f)", 
-                        camera.target.x, camera.target.y, camera.target.z), 15, f3textSpacing + f3lineSize*11, f3textsize, RAYWHITE);
-                    DrawText(TextFormat("- Up: (%06.3f, %06.3f, %06.3f)", 
-                        camera.up.x, camera.up.y, camera.up.z), 15, f3textSpacing + f3lineSize*12, f3textsize, RAYWHITE);
+                        (cameraMode == CAMERA_ORBITAL) ? "ORBITAL" : "CUSTOM"), 15, f3textSpacing + f3lineSize*8, f3textsize, f3color);
+                    DrawText(TextFormat("Projection: %s", (camera.projection == CAMERA_PERSPECTIVE) ? "PERSPECTIVE" :
+                        (camera.projection == CAMERA_ORTHOGRAPHIC) ? "ORTHOGRAPHIC" : "CUSTOM"), 15, f3textSpacing + f3lineSize*9, f3textsize, f3color);
+                    DrawText(TextFormat("Position: (%06.3f, %06.3f, %06.3f)", 
+                        camera.position.x, camera.position.y, camera.position.z), 15, f3textSpacing + f3lineSize*10, f3textsize, f3color);
+                    DrawText(TextFormat("Target: (%06.3f, %06.3f, %06.3f)", 
+                        camera.target.x, camera.target.y, camera.target.z), 15, f3textSpacing + f3lineSize*11, f3textsize, f3color);
+                    DrawText(TextFormat("Up: (%06.3f, %06.3f, %06.3f)", 
+                        camera.up.x, camera.up.y, camera.up.z), 15, f3textSpacing + f3lineSize*12, f3textsize, f3color);
+                    DrawText(TextFormat("Chunks on world: %d", chunksCount), 15, f3textSpacing + f3lineSize*13, f3textsize, f3color);
+                    DrawText(TextFormat("Blocks on world (including air): %d", chunksCount*16), 15, f3textSpacing + f3lineSize*14, f3textsize, f3color);
+                    DrawText(TextFormat("Blocks on world (excluding air): %d", solidBlocksCount), 15, f3textSpacing + f3lineSize*15, f3textsize, f3color);
                 }
 
                 if (IsChatOpened) {
@@ -445,7 +475,7 @@ void Game::run(const Config& config) {
                 }
 
                 if (IsGamePaused) {
-                    DrawText("Game Paused", GetRenderWidth() / 2 - 100, GetRenderHeight() / 2 -  25, 50, RAYWHITE);
+                    DrawText("Game paused", GetRenderWidth() / 2 - MeasureText("Game paused", 50) / 2, GetRenderHeight() / 2 -  25, 50, RAYWHITE);
                 }
                 EndDrawing();
                 break;

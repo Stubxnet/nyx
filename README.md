@@ -20,7 +20,3 @@ There is actually **NO** installation instructions !
 ## Contributing
 
 When someone wants to contribute, we'll see.
-
-## License
-
-### GNU GPL-3.0

@@ -12,6 +12,12 @@ void Game::run(const Config& config) {
 
     GameScreen currentScreen = MENU;
 
+    int renderDistance = 2;
+
+    const int TILE = 32;
+    const int ATLAS_COLS = 2;
+    const int ATLAS_ROWS = 2;
+
     SetExitKey(KEY_NULL);
 
     SetTargetFPS(60);
@@ -26,7 +32,8 @@ void Game::run(const Config& config) {
     gamemode = CREATIVE;
 
     World currentWorld("Default World", {0.0f, 0.0f, 0.0f});
-    int range = 1;
+
+    int range = renderDistance;
 
     for (int cx = -range; cx <= range; ++cx) {
         for (int cy = -range; cy <= range; ++cy) {
@@ -41,16 +48,16 @@ void Game::run(const Config& config) {
         }
     }
 
-    currentWorld.SetBlockId(0, 0, 0, 1);
-    currentWorld.SetBlockId(1, 0, 0, 1);
-    currentWorld.SetBlockId(0, 0, 1, 1);
-    currentWorld.SetBlockId(1, 0, 1, 1);
-    currentWorld.SetBlockId(1, 0, 1, 1);
-    currentWorld.SetBlockId(-1, 0, 0, 1);
-    currentWorld.SetBlockId(0, 0, -1, 1);
-    currentWorld.SetBlockId(-1, 0, -1, 1);
-    currentWorld.SetBlockId(-1, 0, 1, 1);
-    currentWorld.SetBlockId(1, 0, -1, 1);
+    currentWorld.SetBlock(0, 0, 0, 1);
+    currentWorld.SetBlock(1, 0, 0, 1);
+    currentWorld.SetBlock(0, 0, 1, 1);
+    currentWorld.SetBlock(1, 0, 1, 1);
+    currentWorld.SetBlock(1, 0, 1, 1);
+    currentWorld.SetBlock(-1, 0, 0, 1);
+    currentWorld.SetBlock(0, 0, -1, 1);
+    currentWorld.SetBlock(-1, 0, -1, 1);
+    currentWorld.SetBlock(-1, 0, 1, 1);
+    currentWorld.SetBlock(1, 0, -1, 1);
 
 
     //////////////////////////////////////////////////////////////////////////
@@ -64,14 +71,14 @@ void Game::run(const Config& config) {
     //Mesh cubeMesh = GenMeshCube(1.0f, 1.0f, 1.0f);
     //Model cubeModel = LoadModelFromMesh(cubeMesh);
 
-    Vector3 cubePosition = { 0.0f, 0.0f, 0.0f };
+    //Vector3 cubePosition = { 0.0f, 0.0f, 0.0f };
     
-    Image cubeTextureImage = LoadImage(genPath(config.gameDirectory, "assets/textures/blocks/textures5.png").c_str());
-    Texture2D texture = LoadTextureFromImage(cubeTextureImage);
+    Image atlasImage = LoadImage(genPath(config.gameDirectory, "assets/textures/atlas.png").c_str());
+    Texture2D atlas = LoadTextureFromImage(atlasImage);
 
     //cubeModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 
-    UnloadImage(cubeTextureImage);
+    UnloadImage(atlasImage);
 
     //////////////////////////////////////////////////////////////////////////
     //////////////////                 CAMERA               //////////////////
@@ -93,8 +100,6 @@ void Game::run(const Config& config) {
 
     //-------------------------------------
     // Vars
-
-    int renderDistance = 2;
 
     bool IsGamePaused = false;
     bool IsMouseEnabled = false;
@@ -145,7 +150,7 @@ void Game::run(const Config& config) {
                         currentScreen = OPTIONS;
                     } else if (CheckMousePosition(buttonXPlay, buttonYQuit, buttonWidth, buttonHeight)) {
                         std::cout << "Clicked Quit Game" << std::endl;
-                        UnloadTexture(texture);
+                        UnloadTexture(atlas);
                         UnloadTexture(background);
                         CloseWindow();
                     }
@@ -257,7 +262,7 @@ void Game::run(const Config& config) {
                                     if (!(iss >> x >> y >> z >> id)) {
                                         std::cout << "Invalid setblock command." << std::endl;
                                     } else {
-                                        currentWorld.SetBlockId(x, y, z, id);
+                                        currentWorld.SetBlock(x, y, z, id);
                                         if (currentWorld.GetBlockId(x,y,z) != id) {
                                             std::cout << "Error placing block at " << x << y << z << std::endl;
                                         } else {
@@ -272,42 +277,13 @@ void Game::run(const Config& config) {
                                     if (!(iss >> x1 >> y1 >> z1 >> x2 >> y2 >> z2 >> id)) {
                                         std::cout << "Invalid fill command. Usage: /fill x1 y1 z1 x2 y2 z2 id [replace|keep]" << std::endl;
                                     } else {
-                                        int minX = std::min(x1, x2);
-                                        int maxX = std::max(x1, x2);
-                                        int minY = std::min(y1, y2);
-                                        int maxY = std::max(y1, y2);
-                                        int minZ = std::min(z1, z2);
-                                        int maxZ = std::max(z1, z2);
-
-                                        const int MAX_VOLUME = 20000;
-                                        long long vol = (long long)(maxX - minX + 1) * (maxY - minY + 1) * (maxZ - minZ + 1);
-                                        if (vol <= 0 || vol > MAX_VOLUME) {
-                                            std::cout << "Fill area too large or invalid (" << vol << " blocks). Aborted." << std::endl;
+                                        bool sucess = currentWorld.FillBlocks(x1, y1, z1, x2, y2, z2, BlockFillActions::SET, id);
+                                        if (sucess) {
+                                            std::cout << "Filled area with id " << id << ". Blocks placed: " << placed << std::endl;
                                         } else {
-                                            for (int xi = minX; xi <= maxX; ++xi) {
-                                                for (int yi = minY; yi <= maxY; ++yi) {
-                                                    for (int zi = minZ; zi <= maxZ; ++zi) {
-                                                        int currentId = currentWorld.GetBlockId(xi, yi, zi);
-                                                        bool doPlace = false;
-                                                        if (mode == "keep") {
-                                                            if (currentId == 0) doPlace = true;
-                                                        } else { // replace (default)
-                                                            doPlace = true;
-                                                        }
-
-                                                        if (doPlace) {
-                                                            currentWorld.SetBlockId(xi, yi, zi, id);
-                                                            if (currentWorld.GetBlockId(xi, yi, zi) == id) {
-                                                                ++placed;
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
+                                            std::cout << "Failed to set blocks in the specified area." << std::endl;
                                         }
                                     }
-                                    std::cout << "Filled area with id " << id << ". Blocks placed: " << placed << std::endl;
-                                
                                 } else {
                                     std::cout << "Unknown command." << std::endl;
                                 }
@@ -393,7 +369,12 @@ void Game::run(const Config& config) {
                             int cy = camCy + dy;
                             int cz = camCz + dz;
                             auto chunk = currentWorld.GetChunkAt(cx, cy, cz);
-                            if (!chunk) continue;
+                            if (!chunk) {
+                                auto newChunk = std::make_shared<Chunk>(cx, cy, cz);
+                                currentWorld.AddChunk(newChunk);
+                                chunk = currentWorld.GetChunkAt(cx,cy, cz);
+                            }
+
                             if (chunk->IsChunkEmpty()) continue; // skip empty chunks
 
                             for (int lx = 0; lx < CHUNK_SIZE; ++lx) {
@@ -405,6 +386,7 @@ void Game::run(const Config& config) {
 
                                         int blockId = currentWorld.GetBlockId(worldX, worldY, worldZ);
                                         if (blockId == 0) continue;
+
                                         solidBlocksCount++;
 
                                         bool drawFront  = currentWorld.IsBlockTransparent(worldX,     worldY,     worldZ+1);
@@ -414,10 +396,22 @@ void Game::run(const Config& config) {
                                         bool drawRight  = currentWorld.IsBlockTransparent(worldX+1,   worldY,     worldZ);
                                         bool drawLeft   = currentWorld.IsBlockTransparent(worldX-1,   worldY,     worldZ);
 
-                                        if (!(drawFront||drawBack||drawTop||drawBottom||drawRight||drawLeft)) continue;
+                                        int tileX_for_block, tileY_for_block;
+                                        std::tie(tileX_for_block, tileY_for_block) = AtlasCoordsForBlock(blockId);
+
+                                        if (tileX_for_block < 0) tileX_for_block = 0;
+                                        if (tileX_for_block >= ATLAS_COLS) tileX_for_block = ATLAS_COLS - 1;
+                                        if (tileY_for_block < 0) tileY_for_block = 0;
+                                        if (tileY_for_block >= ATLAS_ROWS) tileY_for_block = ATLAS_ROWS - 1;
+
+                                        Rectangle srcBlock = {
+                                            float(tileX_for_block * TILE),
+                                            float(tileY_for_block * TILE),
+                                            float(TILE), float(TILE)
+                                        };
 
                                         Vector3 pos = { (float)worldX, (float)worldY, (float)worldZ };
-                                        DrawCubeTexture(texture, pos, 1.0f, 1.0f, 1.0f,
+                                        DrawCubeTexture(atlas, srcBlock, pos, 1.0f, 1.0f, 1.0f,
                                             drawFront, drawBack, drawTop, drawBottom, drawRight, drawLeft, WHITE);
                                     }
                                 }
@@ -492,7 +486,7 @@ void Game::run(const Config& config) {
 
                     if (CheckMousePosition(buttonX1, buttonY, buttonWidth, buttonHeight)) {
                         std::cout << "Clicked Quit Game" << std::endl;
-                        UnloadTexture(texture);
+                        UnloadTexture(atlas);
                         UnloadTexture(background);
                         CloseWindow();
                     } else if (CheckMousePosition(buttonX2, buttonY, buttonWidth, buttonHeight)) {
@@ -513,7 +507,7 @@ void Game::run(const Config& config) {
     }
 
     //UnloadModel(cubeModel);
-    UnloadTexture(texture);
+    UnloadTexture(atlas);
     UnloadTexture(background);
     CloseWindow();
 }

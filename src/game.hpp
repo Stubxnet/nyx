@@ -20,6 +20,8 @@
 
 #include "render/renderutils.cpp"
 
+#include "textures/atlas.cpp"
+
 int chunk_size = 16;
 
 class Game {

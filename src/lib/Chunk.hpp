@@ -5,6 +5,8 @@
 
 constexpr int CHUNK_SIZE = 16;
 
+struct ChunkKey { int32_t x, y, z; };
+
 class Chunk {
 public:
     Chunk(int cx = 0, int cy = 0, int cz = 0) : cx(cx), cy(cy), cz(cz), empty(true) {

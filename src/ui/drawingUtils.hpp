@@ -1,4 +1,5 @@
 #include "raylib.h"
+#pragma once
 
 void DrawButton(float x, float y, float width, float height, float overlayThickness, Color textColor, Color buttonColor, Color overlayColor, const char* text, const Font& font = GetFontDefault()) {
 

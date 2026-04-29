@@ -122,7 +122,7 @@ public:
         return {c, local};
     }
 
-    bool FillBlocks(int64_t ax, int64_t ay, int64_t az,
+    int64_t FillBlocks(int64_t ax, int64_t ay, int64_t az,
                     int64_t bx, int64_t by, int64_t bz,
                     const BlockFillActions& blockaction,
                     int id = 1,
@@ -191,7 +191,7 @@ public:
             }
         }
 
-        return true;
+        return placed;
     }
 
 private:

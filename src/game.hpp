@@ -7,7 +7,6 @@
 #include <cmath>
 
 #include "utils/lib/config.hpp"
-#include "utils/drawingUtils.cpp"
 #include "utils/colors.cpp"
 #include "utils/ioutils.cpp"
 
@@ -21,6 +20,10 @@
 #include "render/renderutils.cpp"
 
 #include "textures/atlas.cpp"
+
+#include "ui/Interface.cpp"
+#include "ui/drawingUtils.hpp"
+
 
 int chunk_size = 16;
 

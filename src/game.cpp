@@ -28,8 +28,8 @@ void Game::run(const Config& config) {
 
     GameRules gamerules;
 
-    GameModes gamemode;
-    gamemode = CREATIVE;
+    GameModes currentGamemode;
+    currentGamemode = CREATIVE;
 
     World currentWorld("Default World", {0.0f, 0.0f, 0.0f});
 
@@ -40,25 +40,13 @@ void Game::run(const Config& config) {
             for (int cz = -range; cz <= range; ++cz) {
                 auto chunk = std::make_shared<Chunk>(cx, cy, cz);
                 currentWorld.AddChunk(chunk);
-                for (int i = 0; i < CHUNK_SIZE; ++i)
-                    for (int j = 0; j < CHUNK_SIZE; ++j)
-                        for (int k = 0; k < CHUNK_SIZE; ++k)
-                            chunk->SetBlockId(i, j, k, 0);
             }
         }
     }
 
-    currentWorld.SetBlock(0, 0, 0, 1);
-    currentWorld.SetBlock(1, 0, 0, 1);
-    currentWorld.SetBlock(0, 0, 1, 1);
-    currentWorld.SetBlock(1, 0, 1, 1);
-    currentWorld.SetBlock(1, 0, 1, 1);
-    currentWorld.SetBlock(-1, 0, 0, 1);
-    currentWorld.SetBlock(0, 0, -1, 1);
-    currentWorld.SetBlock(-1, 0, -1, 1);
-    currentWorld.SetBlock(-1, 0, 1, 1);
-    currentWorld.SetBlock(1, 0, -1, 1);
-
+    currentWorld.FillBlocks(-3, -3, -3, 3, 3, 3, BlockFillActions::SET);
+    currentWorld.FillBlocks(-2, -2, -2, 2, 2, 2, BlockFillActions::SET, 0);
+    currentWorld.SetBlock(0, 0, 0, 5);
 
     //////////////////////////////////////////////////////////////////////////
     /////////////////            TEXTURES LOADING            /////////////////
@@ -66,17 +54,9 @@ void Game::run(const Config& config) {
 
     Texture2D background = LoadTexture(genPath(config.gameDirectory, 
                   "assets/textures/background/background1920x1080p.png").c_str());
-
-    // This method to draw a block with models will probably used for falling blocks
-    //Mesh cubeMesh = GenMeshCube(1.0f, 1.0f, 1.0f);
-    //Model cubeModel = LoadModelFromMesh(cubeMesh);
-
-    //Vector3 cubePosition = { 0.0f, 0.0f, 0.0f };
     
     Image atlasImage = LoadImage(genPath(config.gameDirectory, "assets/textures/atlas.png").c_str());
     Texture2D atlas = LoadTextureFromImage(atlasImage);
-
-    //cubeModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 
     UnloadImage(atlasImage);
 
@@ -93,8 +73,9 @@ void Game::run(const Config& config) {
 
     int cameraMode = CAMERA_FIRST_PERSON;
 
-    float player_speed = 0.2f;                // TODO: Define a class Entity and create an instance for the player
+    float player_speed = 0.1f;                // TODO: Define a class Entity and create an instance for the player
     Vector3 rotation = {0.0f, 0.0f, 0.0f};
+    Vector3 movement = {0.0f, 0.0f, 0.0f};
 
     float zoom = GetMouseWheelMove() * 0.5f;
 
@@ -104,6 +85,9 @@ void Game::run(const Config& config) {
     bool IsGamePaused = false;
     bool IsMouseEnabled = false;
     bool IsMovementsEnabled = true;
+
+    int screenheight = GetRenderHeight();
+    int screenwidth = GetRenderWidth();
 
     // MENU screen
     float buttonWidth = 200;
@@ -127,6 +111,7 @@ void Game::run(const Config& config) {
     // Chat
     int IsChatOpened = false;
     std::string chatContent;
+    int chatTextsize = GetRenderHeight() / 40;
 
     while (!WindowShouldClose()) {
         if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) && IsKeyDown(KEY_C)) {
@@ -136,8 +121,8 @@ void Game::run(const Config& config) {
         
         switch (currentScreen) {
             case MENU: {
-                float buttonXPlay = GetRenderWidth() / 2 - buttonWidth / 2;
-                float buttonYPlay = GetRenderHeight() / 2 - buttonHeight - 20;
+                float buttonXPlay = screenwidth / 2 - buttonWidth / 2;
+                float buttonYPlay = screenheight / 2 - buttonHeight - 20;
                 float buttonYOptions = buttonYPlay + buttonHeight + buttonSpacing;
                 float buttonYQuit = buttonYPlay + 2 * (buttonHeight + buttonSpacing);
 
@@ -156,15 +141,7 @@ void Game::run(const Config& config) {
                     }
                 }
 
-                BeginDrawing();
-                ClearBackground(backgroundColor);
-                DrawTexture(background, 0, 0, WHITE);
-                DrawButton(buttonXPlay, buttonYPlay, buttonWidth, buttonHeight, 5, WHITE, backgroundColor, WHITE, "Play");
-                DrawButton(buttonXPlay, buttonYOptions, buttonWidth, buttonHeight, 5, WHITE, backgroundColor, WHITE, "Options");
-                DrawButton(buttonXPlay, buttonYQuit, buttonWidth, buttonHeight, 5, WHITE, backgroundColor, WHITE, "Quit Game");
-                DrawText("Nyx", GetRenderWidth() / 2 - 40, GetRenderHeight() - 3 * GetRenderHeight() / 4, 40, WHITE);
-                DrawText("Nyx, open-source video game project", GetRenderWidth() / 2 - GetRenderWidth() / 3 / 2, GetRenderHeight() - GetRenderHeight() / 4, 20, WHITE);
-                EndDrawing();
+                DrawMenu(screenheight, screenwidth, buttonXPlay, buttonYPlay, buttonYOptions, buttonYQuit, buttonWidth, buttonHeight, backgroundColor, background, backgroundColor);
                 break;
             }
 
@@ -185,11 +162,11 @@ void Game::run(const Config& config) {
                     } else {
                         if (IsGamePaused) {
                             IsGamePaused = false;
-                            std::cout << "Game restarted.";
+                            std::cout << "Game restarted." << std::endl;
                             DisableCursor();
                         } else if (!IsGamePaused) {
                             IsGamePaused = true;
-                            std::cout << "Game paused.";
+                            std::cout << "Game paused." << std::endl;
                             ShowCursor();
                         }
                     }
@@ -199,7 +176,13 @@ void Game::run(const Config& config) {
                     rotation.x = GetMouseDelta().x * 0.1f;
                     rotation.y = GetMouseDelta().y * 0.1f;
 
-                    Vector3 movement = {0.0f, 0.0f, 0.0f};
+                    if (currentGamemode == CREATIVE || currentGamemode == SPECTATOR) {
+                        movement = {0.0f, 0.0f, 0.0f};
+                    } else {
+                        movement.x = movement.x * 0.98;
+                        movement.y = movement.y * 0.98;
+                        movement.z = movement.z * 0.98;
+                    }
                     // ---------- Cursor management
 
                     if (!IsMouseEnabled) {
@@ -271,18 +254,63 @@ void Game::run(const Config& config) {
                                     }
                                 } else if (command == "fill") {
                                     int x1, y1, z1, x2, y2, z2, id;
-                                    std::string mode = "replace";
+                                    std::string modeStr;
                                     int placed = 0;
 
                                     if (!(iss >> x1 >> y1 >> z1 >> x2 >> y2 >> z2 >> id)) {
-                                        std::cout << "Invalid fill command. Usage: /fill x1 y1 z1 x2 y2 z2 id [replace|keep]" << std::endl;
+                                        std::cout << "Invalid fill command. Usage: /fill x1 y1 z1 x2 y2 z2 id [replace|keep|break|outline|set]" << std::endl;
                                     } else {
-                                        bool sucess = currentWorld.FillBlocks(x1, y1, z1, x2, y2, z2, BlockFillActions::SET, id);
-                                        if (sucess) {
-                                            std::cout << "Filled area with id " << id << ". Blocks placed: " << placed << std::endl;
+                                        if (iss >> modeStr) {
+                                            std::transform(modeStr.begin(), modeStr.end(), modeStr.begin(), ::tolower);
+                                        } else {
+                                            modeStr = "set";
+                                        }
+
+                                        auto ParseFillAction = [](const std::string &s) -> BlockFillActions {
+                                            if (s == "set") return BlockFillActions::SET;
+                                            if (s == "replace") return BlockFillActions::REPLACE;
+                                            if (s == "keep") return BlockFillActions::KEEP;
+                                            if (s == "break") return BlockFillActions::BREAK;
+                                            if (s == "outline") return BlockFillActions::OUTLINE;
+                                            return BlockFillActions::SET;
+                                        };
+
+                                        BlockFillActions action = ParseFillAction(modeStr);
+
+                                        placed = currentWorld.FillBlocks(x1, y1, z1, x2, y2, z2, action, id);
+                                        if (placed > 0) {
+                                            std::cout << "Filled area with id " << id << " (mode: " << modeStr << "). Blocks placed: " << placed << std::endl;
                                         } else {
                                             std::cout << "Failed to set blocks in the specified area." << std::endl;
                                         }
+                                    }
+                                } else if (command == "gamemode" || command == "gm") {
+                                    std::string stringMode;
+                                    int intMode;
+
+                                    if (iss >> intMode) {
+                                        switch (intMode) {
+                                            case 0:
+                                                currentGamemode = SURVIVAL;
+                                                break;
+                                            case 1:
+                                                currentGamemode = CREATIVE;
+                                                break;
+                                            case 2:
+                                                currentGamemode = SPECTATOR;
+                                                break;
+                                            default: 
+                                                currentGamemode = SURVIVAL;
+                                                break;
+                                        }
+                                    } else if (iss >> stringMode) {
+                                        if (stringMode == "survival") currentGamemode = SURVIVAL;
+                                        else if (stringMode == "creative") currentGamemode = CREATIVE;
+                                        else if (stringMode == "spectator") currentGamemode = SPECTATOR;
+                                        else currentGamemode = SURVIVAL;
+
+                                    } else {
+                                        std::cout << "Invalid gamemode command." << std::endl;
                                     }
                                 } else {
                                     std::cout << "Unknown command." << std::endl;
@@ -324,10 +352,10 @@ void Game::run(const Config& config) {
                         if (IsKeyDown(KEY_S)) {
                             movement.x = -player_speed;
                         }
-                        if (IsKeyDown(KEY_A)) {
+                        if (IsKeyDown(KEY_D)) {
                             movement.y = player_speed;
                         }
-                        if (IsKeyDown(KEY_D)) {
+                        if (IsKeyDown(KEY_A)) {
                             movement.y = -player_speed;
                         }
                         if (IsKeyDown(KEY_SPACE)) {
@@ -351,7 +379,6 @@ void Game::run(const Config& config) {
                 ClearBackground(backgroundColor);
                 BeginMode3D(camera);
                 //--------------3D Drawing-----------------------
-                DrawGrid(50, 1.0f);
 
                 // get camera position in int
                 int wx = (int)floorf(camPos.x);
@@ -431,13 +458,10 @@ void Game::run(const Config& config) {
 
                 if (f3enabled && !HideHUD) {
                     currentFPS = GetFPS();
-                    if (currentFPS < 20) {
-                        fpsColor = ORANGE;
-                    } else if (currentFPS < 10) {
-                        fpsColor = RED;
-                    } else {
-                        fpsColor = GREEN;
-                    }
+                    if (currentFPS < 30) fpsColor = ORANGE;
+                    else if (currentFPS < 10) fpsColor = RED;
+                    else fpsColor = GREEN;
+
                     DrawText(TextFormat("FPS: %i (Target: 60)", GetFPS()), 15, f3textSpacing, f3textsize, fpsColor);
                     DrawText("Nyx build pre-release 1.0.0", 15, f3textSpacing + f3lineSize, f3textsize, f3color);
                     DrawText("Camera controls:", 15, f3textSpacing + f3lineSize*2, f3textsize, f3color);
@@ -447,7 +471,7 @@ void Game::run(const Config& config) {
                     DrawText("Zoom keys: num-plus, num-minus or mouse scroll", 15, f3textSpacing + f3lineSize*6, f3textsize, f3color);
 
                     DrawText("Current camera status:", 15, f3textSpacing + f3lineSize*7, f3textsize, f3color);
-                    DrawText(TextFormat("- Mode: %s", (cameraMode == CAMERA_FREE) ? "FREE" :
+                    DrawText(TextFormat("Camera mode: %s", (cameraMode == CAMERA_FREE) ? "FREE" :
                         (cameraMode == CAMERA_FIRST_PERSON) ? "FIRST_PERSON" :
                         (cameraMode == CAMERA_THIRD_PERSON) ? "THIRD_PERSON" :
                         (cameraMode == CAMERA_ORBITAL) ? "ORBITAL" : "CUSTOM"), 15, f3textSpacing + f3lineSize*8, f3textsize, f3color);
@@ -462,15 +486,18 @@ void Game::run(const Config& config) {
                     DrawText(TextFormat("Chunks on world: %d", chunksCount), 15, f3textSpacing + f3lineSize*13, f3textsize, f3color);
                     DrawText(TextFormat("Blocks on world (including air): %d", chunksCount*16), 15, f3textSpacing + f3lineSize*14, f3textsize, f3color);
                     DrawText(TextFormat("Blocks on world (excluding air): %d", solidBlocksCount), 15, f3textSpacing + f3lineSize*15, f3textsize, f3color);
+                    //DrawText(TextFormat("Gamemode: %s", (currentGamemode == SURVIVAL) ? "SURVIVAL": // Why this does not work ??
+                      //  (currentGamemode == CREATIVE) ? "CREATIVE":
+                        //(currentGamemode == SPECTATOR) "SPECTATOR": "UNKNOWN"), 15, f3textSpacing + f3lineSize*16, f3textsize, f3color);
                 }
 
                 if (IsChatOpened) {
-                    DrawText(chatContent.c_str(), 15, GetRenderHeight() - 15 - f3textsize, f3textsize, RAYWHITE);
+                    DrawChat(screenheight, screenwidth, chatTextsize, chatContent);
                 }
 
                 if (IsGamePaused) {
                     DrawText("Game paused", GetRenderWidth() / 2 - MeasureText("Game paused", 50) / 2, GetRenderHeight() / 2 -  25, 50, RAYWHITE);
-                }
+                } 
                 EndDrawing();
                 break;
             }

@@ -20,3 +20,7 @@ void DrawMenu(int screenheight, int screenwidth, int buttonXPlay, int buttonYPla
     DrawText("Nyx, open-source video game project", screenwidth / 2 - screenwidth / 3 / 2, screenheight - screenheight / 4, 20, WHITE);
     EndDrawing();
 }
+
+void DrawPauseScreen(int screenheight, int screenwidth) {
+    DrawText("Game paused", screenwidth / 2 - MeasureText("Game paused", 50) / 2, screenheight / 2 -  25, 50, RAYWHITE);
+}

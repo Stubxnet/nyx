@@ -14,9 +14,7 @@ void Game::run(const Config& config) {
 
     int renderDistance = 2;
 
-    const int TILE = 32;
-    const int ATLAS_COLS = 2;
-    const int ATLAS_ROWS = 2;
+    bool checkblock = true;
 
     SetExitKey(KEY_NULL);
 
@@ -76,6 +74,9 @@ void Game::run(const Config& config) {
     float player_speed = 0.1f;                // TODO: Define a class Entity and create an instance for the player
     Vector3 rotation = {0.0f, 0.0f, 0.0f};
     Vector3 movement = {0.0f, 0.0f, 0.0f};
+    Vector3 previousCameraPosition = camera.position;
+    BoundingBox playerBB;
+    bool collided = false;
 
     float zoom = GetMouseWheelMove() * 0.5f;
 
@@ -150,8 +151,7 @@ void Game::run(const Config& config) {
                 int solidBlocksCount = 0;
 
                 int key = GetCharPressed();
-
-                Vector3 camPos = camera.position;
+                previousCameraPosition = camera.position;
 
                 if (IsKeyPressed(KEY_ESCAPE)) {
                     if (IsChatOpened) {
@@ -366,24 +366,47 @@ void Game::run(const Config& config) {
                         }
                     }
                 
-                    //if (IsKeyPressed(MOUSE_LEFT_BUTTON)) {
-                    //    Vector2 screenCenter = { GetScreenWidth()/2.0f, GetScreenHeight()/2.0f };
-                    //    Ray ray = GetMouseRay(screenCenter, camera);
+                    //------------------Collision detection----------------------
+                    playerBB = CameraToPlayerBB(camera.position);
+                    int ix0 = (int)floor(playerBB.min.x);
+                    int ix1 = (int)ceil(playerBB.max.x) - 1;
+                    int iy0 = (int)floor(playerBB.min.y);
+                    int iy1 = (int)ceil(playerBB.max.y) - 1;
+                    int iz0 = (int)floor(playerBB.min.z);
+                    int iz1 = (int)ceil(playerBB.max.z) - 1;
 
-                    //}
+                    for(int x = ix0; x <= ix1; ++x){
+                        for(int y = iy0; y <= iy1; ++y){
+                            for(int z = iz0; z <= iz1; ++z){
+                                if (currentWorld.GetBlockId(x, y, z) != 0) collided = true;
+                                if (checkblock = true) {
+                                    std::cout << "Checked block at:" << x << " " << y << " " << z << std::endl;
+                                    checkblock = false;
+                                }
+                            }
+                        }
+                    }
+
+                    if (collided){
+                        camera.position = previousCameraPosition;
+                    } else {
+                        previousCameraPosition = camera.position;
+                    }
+
+                    collided = false;
 
                     UpdateCameraPro(&camera, movement, rotation, zoom);
                 }
-
+                //------------------Drawing----------------------
                 BeginDrawing();
                 ClearBackground(backgroundColor);
                 BeginMode3D(camera);
                 //--------------3D Drawing-----------------------
 
                 // get camera position in int
-                int wx = (int)floorf(camPos.x);
-                int wy = (int)floorf(camPos.y);
-                int wz = (int)floorf(camPos.z);
+                int wx = (int)floorf(camera.position.x);
+                int wy = (int)floorf(camera.position.y);
+                int wz = (int)floorf(camera.position.z);
 
                 auto [camCx, camLx] = World::WorldToChunkAndLocal(wx);
                 auto [camCy, camLy] = World::WorldToChunkAndLocal(wy);
@@ -486,9 +509,11 @@ void Game::run(const Config& config) {
                     DrawText(TextFormat("Chunks on world: %d", chunksCount), 15, f3textSpacing + f3lineSize*13, f3textsize, f3color);
                     DrawText(TextFormat("Blocks on world (including air): %d", chunksCount*16), 15, f3textSpacing + f3lineSize*14, f3textsize, f3color);
                     DrawText(TextFormat("Blocks on world (excluding air): %d", solidBlocksCount), 15, f3textSpacing + f3lineSize*15, f3textsize, f3color);
-                    //DrawText(TextFormat("Gamemode: %s", (currentGamemode == SURVIVAL) ? "SURVIVAL": // Why this does not work ??
-                      //  (currentGamemode == CREATIVE) ? "CREATIVE":
-                        //(currentGamemode == SPECTATOR) "SPECTATOR": "UNKNOWN"), 15, f3textSpacing + f3lineSize*16, f3textsize, f3color);
+                    DrawText(TextFormat("Gamemode: %s",
+                        (currentGamemode == SURVIVAL) ? "SURVIVAL" :
+                        (currentGamemode == CREATIVE) ? "CREATIVE" :
+                        (currentGamemode == SPECTATOR) ? "SPECTATOR" : "UNKNOWN"
+                    ), 15, f3textSpacing + f3lineSize*16, f3textsize, f3color);
                 }
 
                 if (IsChatOpened) {
@@ -496,7 +521,7 @@ void Game::run(const Config& config) {
                 }
 
                 if (IsGamePaused) {
-                    DrawText("Game paused", GetRenderWidth() / 2 - MeasureText("Game paused", 50) / 2, GetRenderHeight() / 2 -  25, 50, RAYWHITE);
+                    DrawPauseScreen(screenheight, screenwidth);
                 } 
                 EndDrawing();
                 break;

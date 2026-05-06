@@ -24,6 +24,9 @@
 #include "ui/Interface.cpp"
 #include "ui/drawingUtils.hpp"
 
+#include "constants.hpp"
+
+#include "collisions/collisions.cpp"
 
 int chunk_size = 16;
 

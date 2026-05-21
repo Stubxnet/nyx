@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <vector>
 #include <algorithm>
+#include <functional>
 #include "Chunk.hpp"
 
 static inline int64_t ChunkKey(int cx, int cy, int cz) {
@@ -31,6 +32,9 @@ enum class BlockFillActions {
 class World {
 public:
     World(const std::string& name, Vector3 spawnpoint) : name(name), spawnpoint(spawnpoint) {}
+
+    using ChunkModifiedCallback = std::function<void(int32_t cx,int32_t cy,int32_t cz)>;
+    void SetChunkModifiedCallback(ChunkModifiedCallback cb) { chunkModifiedCb = cb; }
 
     void Rendered(int32_t cx, int32_t cy, int32_t cz) {
         renderedChunks.push_back(ChunkKey(cx, cy, cz));
@@ -69,22 +73,50 @@ public:
         switch (action) {
             case SetblockActions::SET:
                 chunk->SetBlockId(lx, ly, lz, id);
+                chunkModifiedCb(cx, cy, cz);
+                if (lx == 0) chunkModifiedCb(cx-1, cy, cz);
+                if (lx == CHUNK_SIZE-1) chunkModifiedCb(cx+1, cy, cz);
+                if (ly == 0) chunkModifiedCb(cx, cy-1, cz);
+                if (ly == CHUNK_SIZE-1) chunkModifiedCb(cx, cy+1, cz);
+                if (lz == 0) chunkModifiedCb(cx, cy, cz-1);
+                if (lz == CHUNK_SIZE-1) chunkModifiedCb(cx, cy, cz+1);
                 return true;
             case SetblockActions::REPLACE:
                 if (current != 0) {
                     chunk->SetBlockId(lx, ly, lz, id);
+                    chunkModifiedCb(cx, cy, cz);
+                    if (lx == 0) chunkModifiedCb(cx-1, cy, cz);
+                    if (lx == CHUNK_SIZE-1) chunkModifiedCb(cx+1, cy, cz);
+                    if (ly == 0) chunkModifiedCb(cx, cy-1, cz);
+                    if (ly == CHUNK_SIZE-1) chunkModifiedCb(cx, cy+1, cz);
+                    if (lz == 0) chunkModifiedCb(cx, cy, cz-1);
+                    if (lz == CHUNK_SIZE-1) chunkModifiedCb(cx, cy, cz+1);
                     return true;
                 }
                 return false;
             case SetblockActions::KEEP:
                 if (current == 0) {
                     chunk->SetBlockId(lx, ly, lz, id);
+                    chunkModifiedCb(cx, cy, cz);
+                    if (lx == 0) chunkModifiedCb(cx-1, cy, cz);
+                    if (lx == CHUNK_SIZE-1) chunkModifiedCb(cx+1, cy, cz);
+                    if (ly == 0) chunkModifiedCb(cx, cy-1, cz);
+                    if (ly == CHUNK_SIZE-1) chunkModifiedCb(cx, cy+1, cz);
+                    if (lz == 0) chunkModifiedCb(cx, cy, cz-1);
+                    if (lz == CHUNK_SIZE-1) chunkModifiedCb(cx, cy, cz+1);
                     return true;
                 }
                 return false;
             case SetblockActions::BREAK:
                 if (current != 0) {
                     chunk->SetBlockId(lx, ly, lz, 0);
+                    chunkModifiedCb(cx, cy, cz);
+                    if (lx == 0) chunkModifiedCb(cx-1, cy, cz);
+                    if (lx == CHUNK_SIZE-1) chunkModifiedCb(cx+1, cy, cz);
+                    if (ly == 0) chunkModifiedCb(cx, cy-1, cz);
+                    if (ly == CHUNK_SIZE-1) chunkModifiedCb(cx, cy+1, cz);
+                    if (lz == 0) chunkModifiedCb(cx, cy, cz-1);
+                    if (lz == CHUNK_SIZE-1) chunkModifiedCb(cx, cy, cz+1);
                     return true;
                 }
                 return false;
@@ -201,4 +233,5 @@ private:
     std::vector<int64_t> renderedChunks;
     std::vector<int64_t> loadedChunks;
     Vector3 spawnpoint;
+    ChunkModifiedCallback chunkModifiedCb;
 };

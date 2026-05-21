@@ -2,11 +2,7 @@
 
 enum GameScreen { MENU, GAME, OPTIONS };
 
-void Game::init() {
-    // TODO: use this initialization function
-}
-
-void Game::run(const Config& config) {
+void run(const Config& config) {
     const char* title = config.windowTitle.c_str();
     InitWindow(config.windowWidth, config.windowHeight, title);
 
@@ -21,32 +17,6 @@ void Game::run(const Config& config) {
     SetTargetFPS(60);
 
     //////////////////////////////////////////////////////////////////////////
-    /////////////////      WORLD CLASS INITIALIZATION        /////////////////
-    //////////////////////////////////////////////////////////////////////////
-
-    GameRules gamerules;
-
-    GameModes currentGamemode;
-    currentGamemode = CREATIVE;
-
-    World currentWorld("Default World", {0.0f, 0.0f, 0.0f});
-
-    int range = renderDistance;
-
-    for (int cx = -range; cx <= range; ++cx) {
-        for (int cy = -range; cy <= range; ++cy) {
-            for (int cz = -range; cz <= range; ++cz) {
-                auto chunk = std::make_shared<Chunk>(cx, cy, cz);
-                currentWorld.AddChunk(chunk);
-            }
-        }
-    }
-
-    currentWorld.FillBlocks(-3, -3, -3, 3, 3, 3, BlockFillActions::SET);
-    currentWorld.FillBlocks(-2, -2, -2, 2, 2, 2, BlockFillActions::SET, 0);
-    currentWorld.SetBlock(0, 0, 0, 5);
-
-    //////////////////////////////////////////////////////////////////////////
     /////////////////            TEXTURES LOADING            /////////////////
     //////////////////////////////////////////////////////////////////////////
 
@@ -57,6 +27,61 @@ void Game::run(const Config& config) {
     Texture2D atlas = LoadTextureFromImage(atlasImage);
 
     UnloadImage(atlasImage);
+
+    //////////////////////////////////////////////////////////////////////////
+    /////////////////      WORLD CLASS INITIALIZATION        /////////////////
+    //////////////////////////////////////////////////////////////////////////
+
+    GameRules gamerules;
+
+    GameModes currentGamemode;
+    currentGamemode = CREATIVE;
+
+    World currentWorld("Default World", {0.0f, 0.0f, 0.0f});
+    int range = renderDistance;
+
+    for (int cx = -range; cx <= range; ++cx) {    
+        for (int cy = -range; cy <= range; ++cy) {        
+            for (int cz = -range; cz <= range; ++cz) {            
+                auto chunk = std::make_shared<Chunk>(cx, cy, cz);            
+                currentWorld.AddChunk(chunk);        
+            }    
+        }
+    }
+    
+    struct ChunkRenderInfo {    
+        std::shared_ptr<Chunk> chunk;    
+        Model model{0};    
+        bool loaded{false};    
+        bool dirty{false};
+    };
+    
+    std::unordered_map<int64_t, ChunkRenderInfo> renderInfos;
+    
+    for (size_t i = 0; i < currentWorld.GetChunkCount(); ++i) {    
+        auto ch = currentWorld.GetChunk(i);    
+        if (!ch) continue;    
+        int64_t key = ChunkKey(ch->GetChunkX(), ch->GetChunkY(), ch->GetChunkZ());    
+        ChunkRenderInfo info;    info.chunk = ch;    info.model = Model{0};    
+        info.loaded = false;    info.dirty = true; 
+        renderInfos[key] = std::move(info);
+    }
+    
+    SetAtlasTexture(atlas);
+    SetAtlasParams(TILE, ATLAS_COLS, ATLAS_ROWS);
+
+    currentWorld.SetChunkModifiedCallback([&](int32_t cx,int32_t cy,int32_t cz){    
+        int64_t k = ChunkKey(cx, cy, cz);    
+        auto it = renderInfos.find(k);    
+        if (it != renderInfos.end()) {        
+            it->second.dirty = true;    
+        }
+    });
+
+    currentWorld.FillBlocks(-3, -3, -3, 3, 3, 3, BlockFillActions::SET);
+    currentWorld.FillBlocks(-2, -2, -2, 2, 2, 2, BlockFillActions::SET, 0);
+    currentWorld.SetBlock(0, 0, 0, 5);
+
 
     //////////////////////////////////////////////////////////////////////////
     //////////////////                 CAMERA               //////////////////
@@ -74,9 +99,9 @@ void Game::run(const Config& config) {
     float player_speed = 0.1f;                // TODO: Define a class Entity and create an instance for the player
     Vector3 rotation = {0.0f, 0.0f, 0.0f};
     Vector3 movement = {0.0f, 0.0f, 0.0f};
-    Vector3 previousCameraPosition = camera.position;
-    BoundingBox playerBB;
-    bool collided = false;
+    //Vector3 previousCameraPosition = camera.position;
+    //BoundingBox playerBB;
+    //bool collided = false;
 
     float zoom = GetMouseWheelMove() * 0.5f;
 
@@ -151,7 +176,7 @@ void Game::run(const Config& config) {
                 int solidBlocksCount = 0;
 
                 int key = GetCharPressed();
-                previousCameraPosition = camera.position;
+                //previousCameraPosition = camera.position;
 
                 if (IsKeyPressed(KEY_ESCAPE)) {
                     if (IsChatOpened) {
@@ -173,6 +198,7 @@ void Game::run(const Config& config) {
                 }
 
                 if (!IsGamePaused) {
+                    //--------------Data update----------------
                     rotation.x = GetMouseDelta().x * 0.1f;
                     rotation.y = GetMouseDelta().y * 0.1f;
 
@@ -182,6 +208,25 @@ void Game::run(const Config& config) {
                         movement.x = movement.x * 0.98;
                         movement.y = movement.y * 0.98;
                         movement.z = movement.z * 0.98;
+                    }
+                    //-------------Update dirty chunks-----------
+                    for (auto &pair : renderInfos) {
+                        ChunkRenderInfo &info = pair.second;
+                        if (!info.dirty) continue;
+                        if (info.loaded) {
+                            UnloadModel(info.model);
+                            info.model = Model{0};
+                            info.loaded = false;
+                        }   
+                        Model m = BuildModelForChunk(info.chunk, &currentWorld);
+                        if (m.meshCount > 0) {
+                            info.model = m;
+                            info.loaded = true;
+                            if (atlas.id) SetMaterialTexture(&info.model.materials[0], MATERIAL_MAP_DIFFUSE, atlas);
+                        } else {
+                            info.model = Model{0};
+                            info.loaded = false;
+                        }    info.dirty = false;
                     }
                     // ---------- Cursor management
 
@@ -367,34 +412,8 @@ void Game::run(const Config& config) {
                     }
                 
                     //------------------Collision detection----------------------
-                    playerBB = CameraToPlayerBB(camera.position);
-                    int ix0 = (int)floor(playerBB.min.x);
-                    int ix1 = (int)ceil(playerBB.max.x) - 1;
-                    int iy0 = (int)floor(playerBB.min.y);
-                    int iy1 = (int)ceil(playerBB.max.y) - 1;
-                    int iz0 = (int)floor(playerBB.min.z);
-                    int iz1 = (int)ceil(playerBB.max.z) - 1;
 
-                    for(int x = ix0; x <= ix1; ++x){
-                        for(int y = iy0; y <= iy1; ++y){
-                            for(int z = iz0; z <= iz1; ++z){
-                                if (currentWorld.GetBlockId(x, y, z) != 0) collided = true;
-                                if (checkblock = true) {
-                                    std::cout << "Checked block at:" << x << " " << y << " " << z << std::endl;
-                                    checkblock = false;
-                                }
-                            }
-                        }
-                    }
-
-                    if (collided){
-                        camera.position = previousCameraPosition;
-                    } else {
-                        previousCameraPosition = camera.position;
-                    }
-
-                    collided = false;
-
+                    //-------------------Camera update
                     UpdateCameraPro(&camera, movement, rotation, zoom);
                 }
                 //------------------Drawing----------------------
@@ -412,63 +431,25 @@ void Game::run(const Config& config) {
                 auto [camCy, camLy] = World::WorldToChunkAndLocal(wy);
                 auto [camCz, camLz] = World::WorldToChunkAndLocal(wz);
 
-                for (int dx = -renderDistance; dx <= renderDistance; ++dx) {
-                    for (int dy = -renderDistance; dy <= renderDistance; ++dy) {
-                        for (int dz = -renderDistance; dz <= renderDistance; ++dz) {
-                            int cx = camCx + dx;
-                            int cy = camCy + dy;
-                            int cz = camCz + dz;
-                            auto chunk = currentWorld.GetChunkAt(cx, cy, cz);
-                            if (!chunk) {
-                                auto newChunk = std::make_shared<Chunk>(cx, cy, cz);
-                                currentWorld.AddChunk(newChunk);
-                                chunk = currentWorld.GetChunkAt(cx,cy, cz);
-                            }
-
-                            if (chunk->IsChunkEmpty()) continue; // skip empty chunks
-
-                            for (int lx = 0; lx < CHUNK_SIZE; ++lx) {
-                                for (int ly = 0; ly < CHUNK_SIZE; ++ly) {
-                                    for (int lz = 0; lz < CHUNK_SIZE; ++lz) {
-                                        int worldX = cx * CHUNK_SIZE + lx;
-                                        int worldY = cy * CHUNK_SIZE + ly;
-                                        int worldZ = cz * CHUNK_SIZE + lz;
-
-                                        int blockId = currentWorld.GetBlockId(worldX, worldY, worldZ);
-                                        if (blockId == 0) continue;
-
-                                        solidBlocksCount++;
-
-                                        bool drawFront  = currentWorld.IsBlockTransparent(worldX,     worldY,     worldZ+1);
-                                        bool drawBack   = currentWorld.IsBlockTransparent(worldX,     worldY,     worldZ-1);
-                                        bool drawTop    = currentWorld.IsBlockTransparent(worldX,     worldY+1,   worldZ);
-                                        bool drawBottom = currentWorld.IsBlockTransparent(worldX,     worldY-1,   worldZ);
-                                        bool drawRight  = currentWorld.IsBlockTransparent(worldX+1,   worldY,     worldZ);
-                                        bool drawLeft   = currentWorld.IsBlockTransparent(worldX-1,   worldY,     worldZ);
-
-                                        int tileX_for_block, tileY_for_block;
-                                        std::tie(tileX_for_block, tileY_for_block) = AtlasCoordsForBlock(blockId);
-
-                                        if (tileX_for_block < 0) tileX_for_block = 0;
-                                        if (tileX_for_block >= ATLAS_COLS) tileX_for_block = ATLAS_COLS - 1;
-                                        if (tileY_for_block < 0) tileY_for_block = 0;
-                                        if (tileY_for_block >= ATLAS_ROWS) tileY_for_block = ATLAS_ROWS - 1;
-
-                                        Rectangle srcBlock = {
-                                            float(tileX_for_block * TILE),
-                                            float(tileY_for_block * TILE),
-                                            float(TILE), float(TILE)
-                                        };
-
-                                        Vector3 pos = { (float)worldX, (float)worldY, (float)worldZ };
-                                        DrawCubeTexture(atlas, srcBlock, pos, 1.0f, 1.0f, 1.0f,
-                                            drawFront, drawBack, drawTop, drawBottom, drawRight, drawLeft, WHITE);
-                                    }
-                                }
-                            }
+                for (int ox = -renderDistance; ox <= renderDistance; ++ox) {
+                    for (int oy = -renderDistance; oy <= renderDistance; ++oy) {
+                        for (int oz = -renderDistance; oz <= renderDistance; ++oz) {
+                            int cx = camCx + ox;
+                            int cy = camCy + oy;
+                            int cz = camCz + oz;
+                            int64_t key = ChunkKey(cx, cy, cz);
+                            auto it = renderInfos.find(key);
+                            if (it == renderInfos.end()) continue;
+                            ChunkRenderInfo &info = it->second;
+                            if (!info.loaded) continue;
+                            float worldX = (float)(cx * CHUNK_SIZE);
+                            float worldY = (float)(cy * CHUNK_SIZE);
+                            float worldZ = (float)(cz * CHUNK_SIZE);
+                            DrawModel(info.model, (Vector3){ worldX, worldY, worldZ }, 1.0f, WHITE);
                         }
                     }
                 }
+
 
                 if (cameraMode == CAMERA_THIRD_PERSON) {
                     DrawCube(camera.target, 0.5f, 0.5f, 0.5f, RED);

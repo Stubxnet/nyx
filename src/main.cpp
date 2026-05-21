@@ -21,11 +21,12 @@ auto main(int [[maybe_unused]] argc, [[maybe_unused]] char *argv[]) -> int {
 
     SetTraceLogLevel(LOG_INFO);
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+    SetConfigFlags(FLAG_VSYNC_HINT);
+    SetConfigFlags(FLAG_MSAA_4X_HINT);
 
     std::ios_base::sync_with_stdio(false);
 
-    Game game;
-    game.run(config);
+    run(config);
 
     return 0;
 }

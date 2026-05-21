@@ -18,6 +18,7 @@
 #include "lib/World.hpp"
 
 #include "render/renderutils.cpp"
+#include "render/Mesher.cpp"
 
 #include "textures/atlas.cpp"
 
@@ -26,14 +27,6 @@
 
 #include "constants.hpp"
 
-#include "collisions/collisions.cpp"
-
 int chunk_size = 16;
-
-class Game {
-public:
-    void init();
-    void run(const Config& config);
-};
 
 #endif // GAME_HPP

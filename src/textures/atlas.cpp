@@ -1,3 +1,5 @@
+#pragma once
+
 static std::pair<int,int> AtlasCoordsForBlock(int blockId) {
     switch (blockId) {
         case 1: return {0,0};

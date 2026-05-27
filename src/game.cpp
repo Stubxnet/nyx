@@ -14,7 +14,9 @@ void run(const Config& config) {
 
     SetExitKey(KEY_NULL);
 
-    SetTargetFPS(60);
+    int targetFPS = 60;
+
+    SetTargetFPS(targetFPS);
 
     //////////////////////////////////////////////////////////////////////////
     /////////////////            TEXTURES LOADING            /////////////////
@@ -57,27 +59,24 @@ void run(const Config& config) {
     };
     
     std::unordered_map<int64_t, ChunkRenderInfo> renderInfos;
-    
-    for (size_t i = 0; i < currentWorld.GetChunkCount(); ++i) {    
-        auto ch = currentWorld.GetChunk(i);    
-        if (!ch) continue;    
-        int64_t key = ChunkKey(ch->GetChunkX(), ch->GetChunkY(), ch->GetChunkZ());    
-        ChunkRenderInfo info;    info.chunk = ch;    info.model = Model{0};    
-        info.loaded = false;    info.dirty = true; 
-        renderInfos[key] = std::move(info);
-    }
-    
+
     SetAtlasTexture(atlas);
     SetAtlasParams(TILE, ATLAS_COLS, ATLAS_ROWS);
 
-    currentWorld.SetChunkModifiedCallback([&](int32_t cx,int32_t cy,int32_t cz){    
-        int64_t k = ChunkKey(cx, cy, cz);    
-        auto it = renderInfos.find(k);    
-        if (it != renderInfos.end()) {        
-            it->second.dirty = true;    
-        }
-    });
+    for (size_t i = 0; i < currentWorld.GetChunkCount(); ++i) {
+        auto ch = currentWorld.GetChunk(i);
+        if (!ch) continue;
+        int32_t cx = ch->GetChunkX();
+        int32_t cy = ch->GetChunkY();
+        int32_t cz = ch->GetChunkZ();
 
+        currentWorld.MarkChunkAsDirty(cx, cy, cz);
+    }
+
+    currentWorld.SetChunkModifiedCallback([&](int32_t cx,int32_t cy,int32_t cz){
+        currentWorld.MarkChunkAsDirty(cx, cy, cz);
+    });
+    
     currentWorld.FillBlocks(-3, -3, -3, 3, 3, 3, BlockFillActions::SET);
     currentWorld.FillBlocks(-2, -2, -2, 2, 2, 2, BlockFillActions::SET, 0);
     currentWorld.SetBlock(0, 0, 0, 5);
@@ -210,23 +209,32 @@ void run(const Config& config) {
                         movement.z = movement.z * 0.98;
                     }
                     //-------------Update dirty chunks-----------
-                    for (auto &pair : renderInfos) {
-                        ChunkRenderInfo &info = pair.second;
-                        if (!info.dirty) continue;
-                        if (info.loaded) {
-                            UnloadModel(info.model);
-                            info.model = Model{0};
-                            info.loaded = false;
-                        }   
-                        Model m = BuildModelForChunk(info.chunk, &currentWorld);
+                    for (size_t i = 0; i < currentWorld.GetChunkCount(); ++i) {
+                        auto ch = currentWorld.GetChunk(i);
+                        if (!ch) continue;
+                        int32_t cx = ch->GetChunkX();
+                        int32_t cy = ch->GetChunkY();
+                        int32_t cz = ch->GetChunkZ();
+
+                        if (!currentWorld.IsChunkDirty(cx, cy, cz)) continue;
+
+                        if (currentWorld.IsChunkLoaded(cx, cy, cz)) {
+                            currentWorld.UnloadChunk(cx, cy, cz);
+                            currentWorld.UnmarkChunkAsLoaded(cx, cy, cz);
+                        }
+
+                        Model m = BuildModelForChunk(ch, &currentWorld);
                         if (m.meshCount > 0) {
-                            info.model = m;
-                            info.loaded = true;
-                            if (atlas.id) SetMaterialTexture(&info.model.materials[0], MATERIAL_MAP_DIFFUSE, atlas);
+                            currentWorld.UpdateChunkModel(cx, cy, cz, m);
+                            if (atlas.id) currentWorld.SetChunkMaterialTexture(cx, cy, cz, atlas);
+                            currentWorld.MarkChunkAsLoaded(cx, cy, cz);
                         } else {
-                            info.model = Model{0};
-                            info.loaded = false;
-                        }    info.dirty = false;
+                            Model empty = Model{0};
+                            currentWorld.UpdateChunkModel(cx, cy, cz, empty);
+                            currentWorld.UnmarkChunkAsLoaded(cx, cy, cz);
+                        }
+
+                        currentWorld.UnmarkChunkAsDirty(cx, cy, cz);
                     }
                     // ---------- Cursor management
 
@@ -437,19 +445,27 @@ void run(const Config& config) {
                             int cx = camCx + ox;
                             int cy = camCy + oy;
                             int cz = camCz + oz;
-                            int64_t key = ChunkKey(cx, cy, cz);
-                            auto it = renderInfos.find(key);
-                            if (it == renderInfos.end()) continue;
-                            ChunkRenderInfo &info = it->second;
-                            if (!info.loaded) continue;
+
+                            if (!currentWorld.IsChunkLoaded(cx, cy, cz)) continue;
+
+                            auto chunk = currentWorld.GetChunkAt(cx, cy, cz);
+                            if (!chunk) continue;
+
+                            Model model = chunk->GetModel();
+                            if (chunk->IsModelEmpty()) continue;
+
                             float worldX = (float)(cx * CHUNK_SIZE);
                             float worldY = (float)(cy * CHUNK_SIZE);
                             float worldZ = (float)(cz * CHUNK_SIZE);
-                            DrawModel(info.model, (Vector3){ worldX, worldY, worldZ }, 1.0f, WHITE);
+
+                            // TODO: frustum culling
+
+                            DrawModel(model, (Vector3){ worldX, worldY, worldZ }, 1.0f, WHITE);
+
+                            currentWorld.Rendered(cx, cy, cz);
                         }
                     }
                 }
-
 
                 if (cameraMode == CAMERA_THIRD_PERSON) {
                     DrawCube(camera.target, 0.5f, 0.5f, 0.5f, RED);
@@ -466,7 +482,7 @@ void run(const Config& config) {
                     else if (currentFPS < 10) fpsColor = RED;
                     else fpsColor = GREEN;
 
-                    DrawText(TextFormat("FPS: %i (Target: 60)", GetFPS()), 15, f3textSpacing, f3textsize, fpsColor);
+                    DrawText(TextFormat("FPS: %i (Target: %i)", GetFPS(), targetFPS), 15, f3textSpacing, f3textsize, fpsColor);
                     DrawText("Nyx build pre-release 1.0.0", 15, f3textSpacing + f3lineSize, f3textsize, f3color);
                     DrawText("Camera controls:", 15, f3textSpacing + f3lineSize*2, f3textsize, f3color);
                     DrawText("W, A, S, D, Space, Shift to move", 15, f3textSpacing + f3lineSize*3, f3textsize, f3color);

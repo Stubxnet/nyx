@@ -36,20 +36,86 @@ public:
     using ChunkModifiedCallback = std::function<void(int32_t cx,int32_t cy,int32_t cz)>;
     void SetChunkModifiedCallback(ChunkModifiedCallback cb) { chunkModifiedCb = cb; }
 
+    bool IsChunkEmpty(int32_t cx, int32_t cy, int32_t cz) const {
+        auto chunk = GetChunkAt(cx, cy, cz);
+        if (!chunk) return true;
+        return chunk->IsChunkEmpty();
+    }
+
+    bool IsChunkDirty(int32_t cx, int32_t cy, int32_t cz) const {
+        auto chunk = GetChunkAt(cx, cy, cz);
+        if (!chunk) return false;
+        return chunk->IsChunkDirty();
+    }
+
+    void MarkChunkAsDirty(int32_t cx, int32_t cy, int32_t cz) {
+        auto chunk = GetChunkAt(cx, cy, cz);
+        if (!chunk) return;
+        chunk->MarkAsDirty();
+    }
+
+    void UnmarkChunkAsDirty(int32_t cx, int32_t cy, int32_t cz) {
+        auto chunk = GetChunkAt(cx, cy, cz);
+        if (!chunk) return;
+        chunk->UnmarkAsDirty();
+    }
+
+    bool IsChunkLoaded(int32_t cx, int32_t cy, int32_t cz) const {
+        auto chunk = GetChunkAt(cx, cy, cz);
+        if (!chunk) return false;
+        return chunk->IsChunkLoaded();
+    }
+
+    void MarkChunkAsLoaded(int32_t cx, int32_t cy, int32_t cz) {
+        auto chunk = GetChunkAt(cx, cy, cz);
+        if (!chunk) return;
+        chunk->MarkAsLoaded();
+    }
+
+    void UnmarkChunkAsLoaded(int32_t cx, int32_t cy, int32_t cz) {
+        auto chunk = GetChunkAt(cx, cy, cz);
+        if (!chunk) return;
+        chunk->UnmarkAsLoaded();
+    }
+
+    bool IsModelEmpty(int32_t cx, int32_t cy, int32_t cz) const {
+        auto chunk = GetChunkAt(cx, cy, cz);
+        if (!chunk) return true;
+        return chunk->IsModelEmpty();
+    }
+
+    void UnloadChunk(int32_t cx, int32_t cy, int32_t cz) {
+        auto chunk = GetChunkAt(cx, cy, cz);
+        if (!chunk) return;
+        chunk->UnloadChunk();
+    }
+
+    void UpdateChunkModel(int32_t cx, int32_t cy, int32_t cz, Model& model) {
+        auto chunk = GetChunkAt(cx, cy, cz);
+        if (!chunk) return;
+        chunk->UpdateChunkModel(model);
+    }
+
+    void SetChunkMaterialTexture(int32_t cx, int32_t cy, int32_t cz, Texture2D& atlas) {
+        auto chunk = GetChunkAt(cx, cy, cz);
+        if (!chunk) return;
+        chunk->SetChunkMaterialTexture(atlas);
+    }
+
     void Rendered(int32_t cx, int32_t cy, int32_t cz) {
         renderedChunks.push_back(ChunkKey(cx, cy, cz));
     }
 
-    bool IsRendered(int32_t cx, int32_t cy, int32_t cz) {
+    bool IsRendered(int32_t cx, int32_t cy, int32_t cz) const {
         int64_t key = ChunkKey(cx, cy, cz);
         return std::find(renderedChunks.begin(), renderedChunks.end(), key) != renderedChunks.end();
     }
 
     // world block coordinates -> id (missing chunk/block => air => 0)
-    int GetBlockId(int worldX, int worldY, int worldZ) const {
-        auto [cx, lx] = WorldToChunkAndLocal(worldX);
-        auto [cy, ly] = WorldToChunkAndLocal(worldY);
-        auto [cz, lz] = WorldToChunkAndLocal(worldZ);
+    int GetBlockId(int64_t worldX, int64_t worldY, int64_t worldZ) const {
+        auto [cx, lx] = WorldToChunkAndLocal((int)worldX);
+        auto [cy, ly] = WorldToChunkAndLocal((int)worldY);
+        auto [cz, lz] = WorldToChunkAndLocal((int)worldZ);
 
         auto chunk = GetChunkAt(cx, cy, cz);
         if (!chunk) return 0;
@@ -58,10 +124,10 @@ public:
         return block->GetId();
     }
 
-    bool SetBlock(int worldX, int worldY, int worldZ, int id, SetblockActions action = SetblockActions::SET) {
-        auto [cx, lx] = WorldToChunkAndLocal(worldX);
-        auto [cy, ly] = WorldToChunkAndLocal(worldY);
-        auto [cz, lz] = WorldToChunkAndLocal(worldZ);
+    bool SetBlock(int64_t worldX, int64_t worldY, int64_t worldZ, int id, SetblockActions action = SetblockActions::SET) {
+        auto [cx, lx] = WorldToChunkAndLocal((int)worldX);
+        auto [cy, ly] = WorldToChunkAndLocal((int)worldY);
+        auto [cz, lz] = WorldToChunkAndLocal((int)worldZ);
 
         auto chunk = GetChunkAt(cx, cy, cz);
         if (!chunk) return false;
@@ -70,53 +136,40 @@ public:
         auto block = chunk->GetBlock(lx, ly, lz);
         if (block) current = block->GetId();
 
+        auto notifyNeighbors = [&](void) {
+            if (!chunkModifiedCb) return;
+            chunkModifiedCb(cx, cy, cz);
+            if (lx == 0) chunkModifiedCb(cx-1, cy, cz);
+            if (lx == CHUNK_SIZE-1) chunkModifiedCb(cx+1, cy, cz);
+            if (ly == 0) chunkModifiedCb(cx, cy-1, cz);
+            if (ly == CHUNK_SIZE-1) chunkModifiedCb(cx, cy+1, cz);
+            if (lz == 0) chunkModifiedCb(cx, cy, cz-1);
+            if (lz == CHUNK_SIZE-1) chunkModifiedCb(cx, cy, cz+1);
+        };
+
         switch (action) {
             case SetblockActions::SET:
                 chunk->SetBlockId(lx, ly, lz, id);
-                chunkModifiedCb(cx, cy, cz);
-                if (lx == 0) chunkModifiedCb(cx-1, cy, cz);
-                if (lx == CHUNK_SIZE-1) chunkModifiedCb(cx+1, cy, cz);
-                if (ly == 0) chunkModifiedCb(cx, cy-1, cz);
-                if (ly == CHUNK_SIZE-1) chunkModifiedCb(cx, cy+1, cz);
-                if (lz == 0) chunkModifiedCb(cx, cy, cz-1);
-                if (lz == CHUNK_SIZE-1) chunkModifiedCb(cx, cy, cz+1);
+                notifyNeighbors();
                 return true;
             case SetblockActions::REPLACE:
                 if (current != 0) {
                     chunk->SetBlockId(lx, ly, lz, id);
-                    chunkModifiedCb(cx, cy, cz);
-                    if (lx == 0) chunkModifiedCb(cx-1, cy, cz);
-                    if (lx == CHUNK_SIZE-1) chunkModifiedCb(cx+1, cy, cz);
-                    if (ly == 0) chunkModifiedCb(cx, cy-1, cz);
-                    if (ly == CHUNK_SIZE-1) chunkModifiedCb(cx, cy+1, cz);
-                    if (lz == 0) chunkModifiedCb(cx, cy, cz-1);
-                    if (lz == CHUNK_SIZE-1) chunkModifiedCb(cx, cy, cz+1);
+                    notifyNeighbors();
                     return true;
                 }
                 return false;
             case SetblockActions::KEEP:
                 if (current == 0) {
                     chunk->SetBlockId(lx, ly, lz, id);
-                    chunkModifiedCb(cx, cy, cz);
-                    if (lx == 0) chunkModifiedCb(cx-1, cy, cz);
-                    if (lx == CHUNK_SIZE-1) chunkModifiedCb(cx+1, cy, cz);
-                    if (ly == 0) chunkModifiedCb(cx, cy-1, cz);
-                    if (ly == CHUNK_SIZE-1) chunkModifiedCb(cx, cy+1, cz);
-                    if (lz == 0) chunkModifiedCb(cx, cy, cz-1);
-                    if (lz == CHUNK_SIZE-1) chunkModifiedCb(cx, cy, cz+1);
+                    notifyNeighbors();
                     return true;
                 }
                 return false;
             case SetblockActions::BREAK:
                 if (current != 0) {
                     chunk->SetBlockId(lx, ly, lz, 0);
-                    chunkModifiedCb(cx, cy, cz);
-                    if (lx == 0) chunkModifiedCb(cx-1, cy, cz);
-                    if (lx == CHUNK_SIZE-1) chunkModifiedCb(cx+1, cy, cz);
-                    if (ly == 0) chunkModifiedCb(cx, cy-1, cz);
-                    if (ly == CHUNK_SIZE-1) chunkModifiedCb(cx, cy+1, cz);
-                    if (lz == 0) chunkModifiedCb(cx, cy, cz-1);
-                    if (lz == CHUNK_SIZE-1) chunkModifiedCb(cx, cy, cz+1);
+                    notifyNeighbors();
                     return true;
                 }
                 return false;
@@ -131,7 +184,7 @@ public:
         return nullptr;
     }
 
-    std::shared_ptr<Chunk> GetChunkAt(int cx, int cy, int cz) const {
+    std::shared_ptr<Chunk> GetChunkAt(int32_t cx, int32_t cy, int32_t cz) const {
         int64_t key = ChunkKey(cx, cy, cz);
         auto it = chunks.find(key);
         if (it == chunks.end()) return nullptr;
@@ -168,8 +221,8 @@ public:
         __int128 dy = (__int128)y1 - (__int128)y0 + 1;
         __int128 dz = (__int128)z1 - (__int128)z0 + 1;
         __int128 volume = dx * dy * dz;
-        if (volume <= 0) return false;
-        if (volume > blockLimit) return false;
+        if (volume <= 0) return 0;
+        if (volume > blockLimit) return 0;
 
         int64_t placed = 0;
 
@@ -187,44 +240,45 @@ public:
 
                     if (!shouldProcess) continue;
 
-                    int current = GetBlockId((int) x, (int) y, (int) z);
+                    int current = GetBlockId(x, y, z);
 
                     switch (blockaction) {
                         case BlockFillActions::SET:
-                            if (SetBlock((int)x, (int)y, (int)z, id, SetblockActions::SET))
+                            if (SetBlock(x, y, z, id, SetblockActions::SET))
                                 ++placed;
                             break;
                         case BlockFillActions::REPLACE:
                             if (current != 0) {
-                                if (SetBlock((int)x, (int)y, (int)z, id, SetblockActions::SET))
+                                if (SetBlock(x, y, z, id, SetblockActions::SET))
                                     ++placed;
                             }
                             break;
                         case BlockFillActions::KEEP:
                             if (current == 0) {
-                                if (SetBlock((int)x, (int)y, (int)z, id, SetblockActions::SET))
+                                if (SetBlock(x, y, z, id, SetblockActions::SET))
                                     ++placed;
                             }
                             break;
                         case BlockFillActions::BREAK:
                             if (current != 0) {
-                                if (SetBlock((int)x, (int)y, (int)z, 0, SetblockActions::SET))
+                                if (SetBlock(x, y, z, 0, SetblockActions::SET))
                                     ++placed;
                             }
                             break;
                         case BlockFillActions::OUTLINE:
-                            if (SetBlock((int)x, (int)y, (int)z, id, SetblockActions::SET))
+                            if (SetBlock(x, y, z, id, SetblockActions::SET))
                                 ++placed;
                             break;
                     }
 
-                    if (placed >= blockLimit) return false;
+                    if (placed >= blockLimit) return placed;
                 }
             }
         }
 
         return placed;
     }
+
 
 private:
     std::unordered_map<int64_t, std::shared_ptr<Chunk>> chunks;

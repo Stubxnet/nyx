@@ -30,17 +30,57 @@ public:
     int GetChunkX() const { return cx; }
     int GetChunkY() const { return cy; }
     int GetChunkZ() const { return cz; }
+
     bool IsChunkEmpty() const { return empty; }
+
+    bool IsChunkDirty() const { return dirty; }
+    void MarkAsDirty() { dirty = true; }
+    void UnmarkAsDirty() { dirty = false; }
+
+    bool IsChunkLoaded() const { return loaded; }
+    void MarkAsLoaded() { loaded = true; }
+    void UnmarkAsLoaded() { loaded = false; }
+
+    Model& GetModel() {
+        return model;
+    }
+
+    bool IsModelEmpty() {
+        if (model.meshCount == 0) return true;
+        else return false;
+    }
+
+    void UpdateChunkModel(Model& m) {
+        model = m;  
+    }
+
+    void SetChunkMaterialTexture(Texture2D& atlas) {
+        SetMaterialTexture(&model.materials[0], MATERIAL_MAP_DIFFUSE, atlas);
+    }
+
+    void UnloadChunk() {
+        UnloadModel(model);
+        model = Model{0};
+        loaded = false;
+        dirty = false;
+    }
+
 
 private:
     // block storage in a 3D matrix
     std::array<std::array<std::array<std::shared_ptr<Block>, CHUNK_SIZE>, CHUNK_SIZE>, CHUNK_SIZE> blocks;
     // chunk position
     int cx, cy, cz;
-    // if the chunk is empty or no
+    // if the chunk is empty or not
     bool empty;
     // default id for generator
     int defaultid;
+    // if the chunk is marked as dirty or not
+    bool dirty;
+    // if 3D model of the chunk is loaded
+    bool loaded;
+    // 3D model of the chunk
+    Model model{0};
 
     void InitializeBlocks(int id) {
         for (int x = 0; x < CHUNK_SIZE; ++x) {

@@ -279,6 +279,8 @@ public:
         return placed;
     }
 
+    Vector3 GetSpawnPoint(void) const { return spawnpoint; }
+    void SetSpawnPoint(Vector3& newSpawnpoint) { spawnpoint = newSpawnpoint; }
 
 private:
     std::unordered_map<int64_t, std::shared_ptr<Chunk>> chunks;

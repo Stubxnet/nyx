@@ -39,7 +39,7 @@ void run(const Config& config) {
     GameModes currentGamemode;
     currentGamemode = CREATIVE;
 
-    World currentWorld("Default World", {0.0f, 0.0f, 0.0f});
+    World currentWorld("Default World", {0.0f, 6.0f, 2.0f});
     int range = renderDistance;
 
     for (int cx = -range; cx <= range; ++cx) {    
@@ -51,15 +51,6 @@ void run(const Config& config) {
         }
     }
     
-    struct ChunkRenderInfo {    
-        std::shared_ptr<Chunk> chunk;    
-        Model model{0};    
-        bool loaded{false};    
-        bool dirty{false};
-    };
-    
-    std::unordered_map<int64_t, ChunkRenderInfo> renderInfos;
-
     SetAtlasTexture(atlas);
     SetAtlasParams(TILE, ATLAS_COLS, ATLAS_ROWS);
 
@@ -86,8 +77,10 @@ void run(const Config& config) {
     //////////////////                 CAMERA               //////////////////
     //////////////////////////////////////////////////////////////////////////
 
+    Vector3 currentSpawnPoint = currentWorld.GetSpawnPoint();
+
     Camera camera = { 0 };
-    camera.position = (Vector3){ 0.0f, 2.0f, 4.0f };
+    camera.position = currentSpawnPoint;
     camera.target = (Vector3){ 0.0f, 2.0f, 0.0f };
     camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
     camera.fovy = 60.0f;
@@ -98,9 +91,8 @@ void run(const Config& config) {
     float player_speed = 0.1f;                // TODO: Define a class Entity and create an instance for the player
     Vector3 rotation = {0.0f, 0.0f, 0.0f};
     Vector3 movement = {0.0f, 0.0f, 0.0f};
-    //Vector3 previousCameraPosition = camera.position;
-    //BoundingBox playerBB;
-    //bool collided = false;
+    Vector3 previousCameraPosition = camera.position;
+    bool collided = false;
 
     float zoom = GetMouseWheelMove() * 0.5f;
 
@@ -175,7 +167,7 @@ void run(const Config& config) {
                 int solidBlocksCount = 0;
 
                 int key = GetCharPressed();
-                //previousCameraPosition = camera.position;
+                previousCameraPosition = camera.position;
 
                 if (IsKeyPressed(KEY_ESCAPE)) {
                     if (IsChatOpened) {
@@ -420,7 +412,77 @@ void run(const Config& config) {
                     }
                 
                     //------------------Collision detection----------------------
+                    // Temporary camera used to test collisions.
+                    Camera3D tempCam = camera;
+                    UpdateCameraPro(&tempCam, movement, rotation, zoom);
 
+                    const float eps = 1e-6f;
+                    auto HitboxIntersectsSolid = [&](const Camera3D &c)->bool {
+                        const float eyeX = c.position.x;
+                        const float eyeY = c.position.y;
+                        const float eyeZ = c.position.z;
+
+                        const float bottomY = eyeY - EYES_Y;
+                        const float halfY   = BODY_HEIGHT * 0.5f;
+                        const float centerY = bottomY + halfY;
+
+                        const float halfX = HALF_WIDTH;
+                        const float halfZ = BODY_WIDTH * 0.5f;
+
+                        const float centerX = eyeX;
+                        const float centerZ = eyeZ;
+
+                        const float minX = centerX - halfX;
+                        const float maxX = centerX + halfX;
+                        const float minY = centerY - halfY;
+                        const float maxY = centerY + halfY;
+                        const float minZ = centerZ - halfZ;
+                        const float maxZ = centerZ + halfZ;
+
+                        const int bx0 = (int)std::floor(minX);
+                        const int bx1 = (int)std::floor(maxX - eps);
+                        const int by0 = (int)std::floor(minY);
+                        const int by1 = (int)std::floor(maxY - eps);
+                        const int bz0 = (int)std::floor(minZ);
+                        const int bz1 = (int)std::floor(maxZ - eps);
+
+                        for (int x = bx0; x <= bx1; ++x)
+                        for (int y = by0; y <= by1; ++y)
+                        for (int z = bz0; z <= bz1; ++z)
+                        if (currentWorld.GetBlockId(x,y,z) != 0) return true;
+                        return false;
+
+                    };
+
+                    if (currentGamemode != SPECTATOR) {
+                        // X
+                        if (movement.x != 0.0f) {
+                            tempCam.position.x += movement.x;
+                            if (HitboxIntersectsSolid(tempCam)) {
+                                tempCam.position.x -= movement.x; // undo
+                                movement.x = 0.0f;            // report collision on X
+                                collided = true;
+                            }
+                        }
+                        // Y
+                        if (movement.y != 0.0f) {
+                            tempCam.position.y += movement.y;
+                            if (HitboxIntersectsSolid(tempCam)) {
+                                tempCam.position.y -= movement.y;
+                                movement.y = 0.0f;
+                                collided = true;
+                            }
+                        }
+                        // Z
+                        if (movement.z != 0.0f) {
+                            tempCam.position.z += movement.z;
+                            if (HitboxIntersectsSolid(tempCam)) {
+                                tempCam.position.z -= movement.z;
+                                movement.z = 0.0f;
+                                collided = true;
+                            }
+                        }
+                    }
                     //-------------------Camera update
                     UpdateCameraPro(&camera, movement, rotation, zoom);
                 }

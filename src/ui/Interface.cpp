@@ -13,9 +13,9 @@ void DrawMenu(int screenheight, int screenwidth, int buttonXPlay, int buttonYPla
     BeginDrawing();
     ClearBackground(backgroundColor);
     DrawTexture(background, 0, 0, WHITE);
-    DrawButton(buttonXPlay, buttonYPlay, buttonWidth, buttonHeight, 5, WHITE, color, WHITE, "Play");
-    DrawButton(buttonXPlay, buttonYOptions, buttonWidth, buttonHeight, 5, WHITE, color, WHITE, "Options");
-    DrawButton(buttonXPlay, buttonYQuit, buttonWidth, buttonHeight, 5, WHITE, color, WHITE, "Quit Game");
+    DrawButton(buttonXPlay, buttonYPlay, buttonWidth, buttonHeight, WHITE, color, "Play");
+    DrawButton(buttonXPlay, buttonYOptions, buttonWidth, buttonHeight, WHITE, color, "Options");
+    DrawButton(buttonXPlay, buttonYQuit, buttonWidth, buttonHeight, WHITE, color, "Quit Game");
     DrawText("Nyx", screenwidth / 2 - 40, screenheight - 3 * screenheight / 4, 40, WHITE);
     DrawText("Nyx, open-source video game project", screenwidth / 2 - screenwidth / 3 / 2, screenheight - screenheight / 4, 20, WHITE);
     EndDrawing();

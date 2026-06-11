@@ -6,7 +6,6 @@
 
 #include <cmath>
 
-#include "utils/lib/config.hpp"
 #include "utils/colors.cpp"
 #include "utils/ioutils.cpp"
 
@@ -16,6 +15,8 @@
 #include "lib/Block.hpp"
 #include "lib/Chunk.hpp"
 #include "lib/World.hpp"
+#include "lib/Config.hpp"
+#include "lib/Player.hpp"
 
 #include "render/renderutils.cpp"
 #include "render/Mesher.cpp"
@@ -25,7 +26,11 @@
 #include "ui/Interface.cpp"
 #include "ui/drawingUtils.hpp"
 
+#include "data/commands.cpp"
+
 #include "constants.hpp"
+
+enum GameScreen { MENU, GAME, OPTIONS };
 
 int chunk_size = 16;
 

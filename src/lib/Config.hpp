@@ -8,7 +8,7 @@ struct Config {
     std::string gameDirectory;
     std::string username;
     std::string windowTitle;
-    float renderDistance;
+    int renderDistance;
     float gamma;
 };
 

@@ -1,7 +1,5 @@
 #include "game.hpp"
 
-enum GameScreen { MENU, GAME, OPTIONS };
-
 void run(const Config& config) {
     const char* title = config.windowTitle.c_str();
     InitWindow(config.windowWidth, config.windowHeight, title);
@@ -95,7 +93,7 @@ void run(const Config& config) {
     bool collided = false;
 
     float zoom = GetMouseWheelMove() * 0.5f;
-
+    
     //-------------------------------------
     // Vars
 
@@ -111,7 +109,7 @@ void run(const Config& config) {
     float buttonHeight = 50;
     float buttonSpacing = 20;
 
-    //----------- HUD-related functions-------------
+    //----------- HUD-related -----------------
 
     // F3
     bool f3enabled = true;
@@ -121,6 +119,8 @@ void run(const Config& config) {
     Color fpsColor = GREEN;
     Color f3color = RAYWHITE;
     int currentFPS = 0;
+    bool drawBoundingBoxes = false;
+    bool drawChunksGrid = false;
 
     // F1
     int HideHUD = false;
@@ -164,7 +164,6 @@ void run(const Config& config) {
 
             case GAME: {
                 int chunksCount = static_cast<int>(currentWorld.GetChunkCount());
-                int solidBlocksCount = 0;
 
                 int key = GetCharPressed();
                 previousCameraPosition = camera.position;
@@ -253,130 +252,32 @@ void run(const Config& config) {
                         if (IsKeyPressed(KEY_ENTER)) {
                             if (!chatContent.empty() && chatContent[0] == '/') {
                                 std::string input = chatContent.substr(1);
-                                std::istringstream iss(input);
-                                std::string command;
-                                iss >> command;
-
-                                if (command == "teleport" || command == "tp") {
-                                    float x, y, z;
-                                    if (!(iss >> x >> y >> z)) {
-                                        std::cout << "Invalid teleport command." << std::endl;
-                                    } else {
-                                        camera.position = { x, y, z };
-                                    }
-                                } else if (command == "rotation" || command == "rt") {
-                                    float x, y, z;
-                                    if(!(iss >> x >> y >> z)) {
-                                        std::cout << "Invalid rotation command." << std::endl;
-                                    } else {
-                                        camera.target = { x, y, z };
-                                    }
-                                } else if (command == "fov") {
-                                    float fov;
-                                    if (!(iss >> fov)) {
-                                        std::cout << "Invalid fov command." << std::endl;
-                                    } else {
-                                        camera.fovy = fov;
-                                    }
-                                } else if (command == "renderdistance" || command == "rd") {
-                                    int rd;
-                                    if (!(iss >> rd)) {
-                                        std::cout << "Invalid renderdistance command." << std::endl;
-                                    } else {
-                                        renderDistance = rd;
-                                    }
-                                } else if (command == "setblock" || command == "sb") {
-                                    int x, y, z, id;
-                                    if (!(iss >> x >> y >> z >> id)) {
-                                        std::cout << "Invalid setblock command." << std::endl;
-                                    } else {
-                                        currentWorld.SetBlock(x, y, z, id);
-                                        if (currentWorld.GetBlockId(x,y,z) != id) {
-                                            std::cout << "Error placing block at " << x << y << z << std::endl;
-                                        } else {
-                                            std::cout << "Block successfully placed at " << x << y << z << std::endl;
-                                        }
-                                    }
-                                } else if (command == "fill") {
-                                    int x1, y1, z1, x2, y2, z2, id;
-                                    std::string modeStr;
-                                    int placed = 0;
-
-                                    if (!(iss >> x1 >> y1 >> z1 >> x2 >> y2 >> z2 >> id)) {
-                                        std::cout << "Invalid fill command. Usage: /fill x1 y1 z1 x2 y2 z2 id [replace|keep|break|outline|set]" << std::endl;
-                                    } else {
-                                        if (iss >> modeStr) {
-                                            std::transform(modeStr.begin(), modeStr.end(), modeStr.begin(), ::tolower);
-                                        } else {
-                                            modeStr = "set";
-                                        }
-
-                                        auto ParseFillAction = [](const std::string &s) -> BlockFillActions {
-                                            if (s == "set") return BlockFillActions::SET;
-                                            if (s == "replace") return BlockFillActions::REPLACE;
-                                            if (s == "keep") return BlockFillActions::KEEP;
-                                            if (s == "break") return BlockFillActions::BREAK;
-                                            if (s == "outline") return BlockFillActions::OUTLINE;
-                                            return BlockFillActions::SET;
-                                        };
-
-                                        BlockFillActions action = ParseFillAction(modeStr);
-
-                                        placed = currentWorld.FillBlocks(x1, y1, z1, x2, y2, z2, action, id);
-                                        if (placed > 0) {
-                                            std::cout << "Filled area with id " << id << " (mode: " << modeStr << "). Blocks placed: " << placed << std::endl;
-                                        } else {
-                                            std::cout << "Failed to set blocks in the specified area." << std::endl;
-                                        }
-                                    }
-                                } else if (command == "gamemode" || command == "gm") {
-                                    std::string stringMode;
-                                    int intMode;
-
-                                    if (iss >> intMode) {
-                                        switch (intMode) {
-                                            case 0:
-                                                currentGamemode = SURVIVAL;
-                                                break;
-                                            case 1:
-                                                currentGamemode = CREATIVE;
-                                                break;
-                                            case 2:
-                                                currentGamemode = SPECTATOR;
-                                                break;
-                                            default: 
-                                                currentGamemode = SURVIVAL;
-                                                break;
-                                        }
-                                    } else if (iss >> stringMode) {
-                                        if (stringMode == "survival") currentGamemode = SURVIVAL;
-                                        else if (stringMode == "creative") currentGamemode = CREATIVE;
-                                        else if (stringMode == "spectator") currentGamemode = SPECTATOR;
-                                        else currentGamemode = SURVIVAL;
-
-                                    } else {
-                                        std::cout << "Invalid gamemode command." << std::endl;
-                                    }
-                                } else {
-                                    std::cout << "Unknown command." << std::endl;
-                                }
+                                auto cameraPtr = std::make_shared<Camera>(camera);
+                                auto worldPtr  = std::make_shared<World>(currentWorld);
+                                CommandContext ctx{ cameraPtr, worldPtr, &renderDistance, &currentGamemode };
+                                HandleCommand(input, ctx);
                             } else {
                                 std::cout << "Message send:" << chatContent << std::endl;
                             }
-                            chatContent = "";
+                            chatContent.clear();
                             IsChatOpened = false;
                             IsMovementsEnabled = true;
                         }
                     }
 
                     if (IsKeyPressed(KEY_F3)) {
-                        if (!f3enabled) {
+                        if (IsKeyPressed(KEY_B)) {
+                            drawBoundingBoxes = true;
+                        } else if (IsKeyPressed(KEY_G)) {
+                            drawChunksGrid = true;
+                        } else if (!f3enabled) {
                             f3enabled = true;
                         } else {
                             f3enabled = false;
                         }
 
                     }
+
                     if (IsKeyPressed(KEY_F1)) {
                         if (!HideHUD) {
                             HideHUD = true;
@@ -384,6 +285,15 @@ void run(const Config& config) {
                             HideHUD = false;
                         }
                     }
+
+                    if (IsKeyPressed(KEY_F5)) {
+                        if (cameraMode != CAMERA_THIRD_PERSON) {
+                            cameraMode = CAMERA_THIRD_PERSON;
+                        } else {
+                            cameraMode = CAMERA_FIRST_PERSON;
+                        }
+                    }
+
                     if (IsKeyPressed(KEY_T)) {
                         std::cout << "Chat opened" << std::endl;
                         IsMovementsEnabled = false;
@@ -412,78 +322,12 @@ void run(const Config& config) {
                     }
                 
                     //------------------Collision detection----------------------
-                    // Temporary camera used to test collisions.
                     Camera3D tempCam = camera;
                     UpdateCameraPro(&tempCam, movement, rotation, zoom);
 
-                    const float eps = 1e-6f;
-                    auto HitboxIntersectsSolid = [&](const Camera3D &c)->bool {
-                        const float eyeX = c.position.x;
-                        const float eyeY = c.position.y;
-                        const float eyeZ = c.position.z;
-
-                        const float bottomY = eyeY - EYES_Y;
-                        const float halfY   = BODY_HEIGHT * 0.5f;
-                        const float centerY = bottomY + halfY;
-
-                        const float halfX = HALF_WIDTH;
-                        const float halfZ = BODY_WIDTH * 0.5f;
-
-                        const float centerX = eyeX;
-                        const float centerZ = eyeZ;
-
-                        const float minX = centerX - halfX;
-                        const float maxX = centerX + halfX;
-                        const float minY = centerY - halfY;
-                        const float maxY = centerY + halfY;
-                        const float minZ = centerZ - halfZ;
-                        const float maxZ = centerZ + halfZ;
-
-                        const int bx0 = (int)std::floor(minX);
-                        const int bx1 = (int)std::floor(maxX - eps);
-                        const int by0 = (int)std::floor(minY);
-                        const int by1 = (int)std::floor(maxY - eps);
-                        const int bz0 = (int)std::floor(minZ);
-                        const int bz1 = (int)std::floor(maxZ - eps);
-
-                        for (int x = bx0; x <= bx1; ++x)
-                        for (int y = by0; y <= by1; ++y)
-                        for (int z = bz0; z <= bz1; ++z)
-                        if (currentWorld.GetBlockId(x,y,z) != 0) return true;
-                        return false;
-
-                    };
-
-                    if (currentGamemode != SPECTATOR) {
-                        // X
-                        if (movement.x != 0.0f) {
-                            tempCam.position.x += movement.x;
-                            if (HitboxIntersectsSolid(tempCam)) {
-                                tempCam.position.x -= movement.x; // undo
-                                movement.x = 0.0f;            // report collision on X
-                                collided = true;
-                            }
-                        }
-                        // Y
-                        if (movement.y != 0.0f) {
-                            tempCam.position.y += movement.y;
-                            if (HitboxIntersectsSolid(tempCam)) {
-                                tempCam.position.y -= movement.y;
-                                movement.y = 0.0f;
-                                collided = true;
-                            }
-                        }
-                        // Z
-                        if (movement.z != 0.0f) {
-                            tempCam.position.z += movement.z;
-                            if (HitboxIntersectsSolid(tempCam)) {
-                                tempCam.position.z -= movement.z;
-                                movement.z = 0.0f;
-                                collided = true;
-                            }
-                        }
-                    }
-                    //-------------------Camera update
+                    BoundingBox playerBox = CreatePlayerHitbox(tempCam);
+                    bool collided = ResolveCollisions(movement, tempCam, playerBox, currentWorld, currentGamemode, SPECTATOR);
+                    //--------------------Camera update----------------
                     UpdateCameraPro(&camera, movement, rotation, zoom);
                 }
                 //------------------Drawing----------------------
@@ -529,9 +373,9 @@ void run(const Config& config) {
                     }
                 }
 
-                if (cameraMode == CAMERA_THIRD_PERSON) {
-                    DrawCube(camera.target, 0.5f, 0.5f, 0.5f, RED);
-                    DrawCubeWires(camera.target, 0.5f, 0.5f, 0.5f, RAYWHITE);
+                if (drawBoundingBoxes && camera.projection == CAMERA_THIRD_PERSON) {   
+                    BoundingBox playerBox = CreatePlayerHitbox(camera);
+                    DrawBoundingBox(playerBox, LIME);
                 }
 
                 EndMode3D();
@@ -567,7 +411,7 @@ void run(const Config& config) {
                         camera.up.x, camera.up.y, camera.up.z), 15, f3textSpacing + f3lineSize*12, f3textsize, f3color);
                     DrawText(TextFormat("Chunks on world: %d", chunksCount), 15, f3textSpacing + f3lineSize*13, f3textsize, f3color);
                     DrawText(TextFormat("Blocks on world (including air): %d", chunksCount*16), 15, f3textSpacing + f3lineSize*14, f3textsize, f3color);
-                    DrawText(TextFormat("Blocks on world (excluding air): %d", solidBlocksCount), 15, f3textSpacing + f3lineSize*15, f3textsize, f3color);
+                    DrawText(TextFormat("Render distance: %d", renderDistance), 15, f3textSpacing + f3lineSize*15, f3textsize, f3color);
                     DrawText(TextFormat("Gamemode: %s",
                         (currentGamemode == SURVIVAL) ? "SURVIVAL" :
                         (currentGamemode == CREATIVE) ? "CREATIVE" :
@@ -575,7 +419,7 @@ void run(const Config& config) {
                     ), 15, f3textSpacing + f3lineSize*16, f3textsize, f3color);
                 }
 
-                if (IsChatOpened) {
+                if (IsChatOpened && !HideHUD) {
                     DrawChat(screenheight, screenwidth, chatTextsize, chatContent);
                 }
 
@@ -609,8 +453,8 @@ void run(const Config& config) {
                 BeginDrawing();
                 ClearBackground(backgroundColor);
                 DrawTexture(background, 0, 0, WHITE);
-                DrawButton(buttonX1, buttonY, buttonWidth, buttonHeight, 5, WHITE, backgroundColor, WHITE, "Quit Game");
-                DrawButton(buttonX2, buttonY, buttonWidth, buttonHeight, 5, WHITE, backgroundColor, WHITE, "Back to menu");
+                DrawButton(buttonX1, buttonY, buttonWidth, buttonHeight, WHITE, backgroundColor, "Quit Game");
+                DrawButton(buttonX2, buttonY, buttonWidth, buttonHeight, WHITE, backgroundColor, "Back to menu");
                 EndDrawing();
                 break;
             }

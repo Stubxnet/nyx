@@ -7,27 +7,13 @@
 #include <algorithm>
 #include <functional>
 #include "Chunk.hpp"
+#include "../enum.hpp"
 
 static inline int64_t ChunkKey(int cx, int cy, int cz) {
     const int64_t MASK = (1LL << 21) - 1;
     auto enc = ( (int64_t)(cx & MASK) << 42 ) | ( (int64_t)(cy & MASK) << 21 ) | (int64_t)(cz & MASK);
     return enc;
 }
-
-enum class SetblockActions {
-    SET,
-    REPLACE,
-    KEEP,
-    BREAK
-};
-
-enum class BlockFillActions {
-    SET,
-    REPLACE,
-    KEEP,
-    BREAK,
-    OUTLINE
-};
 
 class World {
 public:

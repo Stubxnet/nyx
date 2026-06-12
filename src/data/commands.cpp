@@ -2,7 +2,7 @@
 #include <string>
 #include <memory>
 #include "../lib/World.hpp"
-#include "../lib/GameMode.hpp"
+#include "../enum.hpp"
 #include "raylib.h"
 
 struct CommandContext {
@@ -10,6 +10,7 @@ struct CommandContext {
     std::shared_ptr<World> world;
     int *renderDistance;
     GameModes *currentGamemode;
+    bool *isCreativeFlyEnabled;
 };
 
 static BlockFillActions ParseFillAction(const std::string &s) {
@@ -90,6 +91,7 @@ bool HandleCommand(const std::string &input, CommandContext &ctx) {
                     case 0: *ctx.currentGamemode = GameModes::SURVIVAL; break;
                     case 1: *ctx.currentGamemode = GameModes::CREATIVE; break;
                     case 2: *ctx.currentGamemode = GameModes::SPECTATOR; break;
+                    case 3: *ctx.currentGamemode = GameModes::BUILDER; break;
                     default: *ctx.currentGamemode = GameModes::SURVIVAL; break;
                 }
             }            return true;
@@ -98,12 +100,23 @@ bool HandleCommand(const std::string &input, CommandContext &ctx) {
                 if (stringMode == "survival") *ctx.currentGamemode = GameModes::SURVIVAL;
                 else if (stringMode == "creative") *ctx.currentGamemode = GameModes::CREATIVE;
                 else if (stringMode == "spectator") *ctx.currentGamemode = GameModes::SPECTATOR;
+                else if (stringMode == "builder") *ctx.currentGamemode = GameModes::BUILDER;
                 else *ctx.currentGamemode = GameModes::SURVIVAL;
             }
             return true;
         } else {
             std::cout << "Invalid gamemode command.\n";
             return false;
+        }
+    }
+
+    if (command == "fly") {
+        if (ctx.isCreativeFlyEnabled) {
+            *ctx.isCreativeFlyEnabled = false;
+            std::cout << "Disabled creative fly mode" << std::endl;
+        } else {
+            *ctx.isCreativeFlyEnabled = true;
+            std::cout << "Creative fly mode enabled." << std::endl;
         }
     }
 

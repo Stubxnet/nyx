@@ -76,9 +76,14 @@ void run(const Config& config) {
     //////////////////////////////////////////////////////////////////////////
 
     Vector3 currentSpawnPoint = currentWorld.GetSpawnPoint();
+    RenderState renderState = { 0 };
+    Body body = { 0 };
 
-    Camera camera = { 0 };
+    Camera3D camera = { 0 };
     camera.position = currentSpawnPoint;
+
+    renderState.currentCameraPosition = camera.position;
+    renderState.previousCameraPosition = camera.position;
     camera.target = (Vector3){ 0.0f, 2.0f, 0.0f };
     camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
     camera.fovy = 60.0f;
@@ -89,11 +94,18 @@ void run(const Config& config) {
     float player_speed = 0.1f;                // TODO: Define a class Entity and create an instance for the player
     Vector3 rotation = {0.0f, 0.0f, 0.0f};
     Vector3 movement = {0.0f, 0.0f, 0.0f};
-    Vector3 previousCameraPosition = camera.position;
+
     bool collided = false;
 
     float zoom = GetMouseWheelMove() * 0.5f;
-    
+
+    static Vector2 sensitivity = { 0.001f, 0.001f };
+    static float globalTime = 0.0f;
+    static float tickAccumulator = 0.0f;
+
+    float accumulator = 0.0f;
+
+    bool isCreativeFlyEnabled = true;
     //-------------------------------------
     // Vars
 
@@ -138,27 +150,14 @@ void run(const Config& config) {
         
         switch (currentScreen) {
             case MENU: {
-                float buttonXPlay = screenwidth / 2 - buttonWidth / 2;
-                float buttonYPlay = screenheight / 2 - buttonHeight - 20;
-                float buttonYOptions = buttonYPlay + buttonHeight + buttonSpacing;
-                float buttonYQuit = buttonYPlay + 2 * (buttonHeight + buttonSpacing);
-
-                if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-                    if (CheckMousePosition(buttonXPlay, buttonYPlay, buttonWidth, buttonHeight)) {
-                        std::cout << "Clicked Play" << std::endl;
-                        currentScreen = GAME;
-                    } else if (CheckMousePosition(buttonXPlay, buttonYOptions, buttonWidth, buttonHeight)) {
-                        std::cout << "Clicked Options" << std::endl;
-                        currentScreen = OPTIONS;
-                    } else if (CheckMousePosition(buttonXPlay, buttonYQuit, buttonWidth, buttonHeight)) {
-                        std::cout << "Clicked Quit Game" << std::endl;
-                        UnloadTexture(atlas);
-                        UnloadTexture(background);
-                        CloseWindow();
-                    }
+                MenuAction action = DrawAndHandleMenu(screenheight, screenwidth, background, backgroundColor, backgroundColor);
+                if (action == MenuAction::PLAY) currentScreen = GAME;
+                else if (action == MenuAction::OPTIONS) currentScreen = OPTIONS;
+                else if (action == MenuAction::QUIT) {
+                    UnloadTexture(atlas);
+                    UnloadTexture(background);
+                    CloseWindow();
                 }
-
-                DrawMenu(screenheight, screenwidth, buttonXPlay, buttonYPlay, buttonYOptions, buttonYQuit, buttonWidth, buttonHeight, backgroundColor, background, backgroundColor);
                 break;
             }
 
@@ -166,7 +165,7 @@ void run(const Config& config) {
                 int chunksCount = static_cast<int>(currentWorld.GetChunkCount());
 
                 int key = GetCharPressed();
-                previousCameraPosition = camera.position;
+                renderState.previousCameraPosition = camera.position;
 
                 if (IsKeyPressed(KEY_ESCAPE)) {
                     if (IsChatOpened) {
@@ -189,16 +188,15 @@ void run(const Config& config) {
 
                 if (!IsGamePaused) {
                     //--------------Data update----------------
-                    rotation.x = GetMouseDelta().x * 0.1f;
-                    rotation.y = GetMouseDelta().y * 0.1f;
+                    float frame_dt = GetFrameTime();    
+                    if (frame_dt > 0.25f) frame_dt = 0.25f;
 
-                    if (currentGamemode == CREATIVE || currentGamemode == SPECTATOR) {
-                        movement = {0.0f, 0.0f, 0.0f};
-                    } else {
-                        movement.x = movement.x * 0.98;
-                        movement.y = movement.y * 0.98;
-                        movement.z = movement.z * 0.98;
-                    }
+                    Vector2 mouseDelta = GetMouseDelta();    
+                    zoom = GetMouseWheelMove() * 0.5f;
+
+                    rotation.x -= mouseDelta.x * sensitivity.x; // yaw
+                    rotation.y -= mouseDelta.y * sensitivity.y; // pitch
+
                     //-------------Update dirty chunks-----------
                     for (size_t i = 0; i < currentWorld.GetChunkCount(); ++i) {
                         auto ch = currentWorld.GetChunk(i);
@@ -248,13 +246,12 @@ void run(const Config& config) {
                             }
 
                         }
-
                         if (IsKeyPressed(KEY_ENTER)) {
                             if (!chatContent.empty() && chatContent[0] == '/') {
                                 std::string input = chatContent.substr(1);
                                 auto cameraPtr = std::make_shared<Camera>(camera);
                                 auto worldPtr  = std::make_shared<World>(currentWorld);
-                                CommandContext ctx{ cameraPtr, worldPtr, &renderDistance, &currentGamemode };
+                                CommandContext ctx{ cameraPtr, worldPtr, &renderDistance, &currentGamemode, &isCreativeFlyEnabled };
                                 HandleCommand(input, ctx);
                             } else {
                                 std::cout << "Message send:" << chatContent << std::endl;
@@ -300,35 +297,26 @@ void run(const Config& config) {
                         IsChatOpened = true;
                     }
 
-                    if (IsMovementsEnabled) {            
-                        if (IsKeyDown(KEY_W)) {
-                            movement.x = player_speed;
-                        }
-                        if (IsKeyDown(KEY_S)) {
-                            movement.x = -player_speed;
-                        }
-                        if (IsKeyDown(KEY_D)) {
-                            movement.y = player_speed;
-                        }
-                        if (IsKeyDown(KEY_A)) {
-                            movement.y = -player_speed;
-                        }
-                        if (IsKeyDown(KEY_SPACE)) {
-                            movement.z = player_speed;
-                        }
-                        if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) {
-                            movement.z = -player_speed;
-                        }
-                    }
-                
-                    //------------------Collision detection----------------------
-                    Camera3D tempCam = camera;
-                    UpdateCameraPro(&tempCam, movement, rotation, zoom);
-
-                    BoundingBox playerBox = CreatePlayerHitbox(tempCam);
-                    bool collided = ResolveCollisions(movement, tempCam, playerBox, currentWorld, currentGamemode, SPECTATOR);
-                    //--------------------Camera update----------------
-                    UpdateCameraPro(&camera, movement, rotation, zoom);
+                    //------------Tick update------------------------
+                    UpdatePlayerMovementTick(
+                        camera,
+                        body,
+                        renderState,
+                        currentWorld,
+                        currentGamemode,
+                        isCreativeFlyEnabled,
+                        movement,
+                        rotation,
+                        accumulator,
+                        tickAccumulator,
+                        frame_dt,
+                        mouseDelta,
+                        zoom,
+                        IsMovementsEnabled,
+                        IsMouseEnabled
+                    );
+                    
+//                    UpdateCameraPro(&camera, movement, rotation, zoom);
                 }
                 //------------------Drawing----------------------
                 BeginDrawing();
@@ -415,7 +403,8 @@ void run(const Config& config) {
                     DrawText(TextFormat("Gamemode: %s",
                         (currentGamemode == SURVIVAL) ? "SURVIVAL" :
                         (currentGamemode == CREATIVE) ? "CREATIVE" :
-                        (currentGamemode == SPECTATOR) ? "SPECTATOR" : "UNKNOWN"
+                        (currentGamemode == SPECTATOR) ? "SPECTATOR" : 
+                        (currentGamemode == BUILDER) ? "BUILDER" : "UNKNOWN"
                     ), 15, f3textSpacing + f3lineSize*16, f3textsize, f3color);
                 }
 
@@ -430,38 +419,20 @@ void run(const Config& config) {
                 break;
             }
 
-            case OPTIONS: {
-                float totalButtonWidth = 2 * buttonWidth + buttonSpacing;
-                float buttonX1 = (GetRenderWidth() - totalButtonWidth) / 2;
-                float buttonX2 = buttonX1 + buttonWidth + buttonSpacing;
-                float buttonY = GetRenderHeight() - buttonHeight - 20;
-
-                if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-                    Vector2 mousePointOptions = { static_cast<float>(GetMouseX()), static_cast<float>(GetMouseY()) };
-
-                    if (CheckMousePosition(buttonX1, buttonY, buttonWidth, buttonHeight)) {
-                        std::cout << "Clicked Quit Game" << std::endl;
-                        UnloadTexture(atlas);
-                        UnloadTexture(background);
-                        CloseWindow();
-                    } else if (CheckMousePosition(buttonX2, buttonY, buttonWidth, buttonHeight)) {
-                        std::cout << "Clicked Back to menu" << std::endl;
-                        currentScreen = MENU;
-                    }
-                }
-
-                BeginDrawing();
-                ClearBackground(backgroundColor);
-                DrawTexture(background, 0, 0, WHITE);
-                DrawButton(buttonX1, buttonY, buttonWidth, buttonHeight, WHITE, backgroundColor, "Quit Game");
-                DrawButton(buttonX2, buttonY, buttonWidth, buttonHeight, WHITE, backgroundColor, "Back to menu");
-                EndDrawing();
+            case OPTIONS: {    
+                OptionsAction action = DrawAndHandleOptions(screenwidth, screenheight, background, backgroundColor, backgroundColor);    
+                if (action == OptionsAction::QUIT) {        
+                    UnloadTexture(atlas);        
+                    UnloadTexture(background);        
+                    CloseWindow();    
+                } else if (action == OptionsAction::BACK) {        
+                    currentScreen = MENU;    
+                }    
                 break;
-            }
+            }        
         }
     }
 
-    //UnloadModel(cubeModel);
     UnloadTexture(atlas);
     UnloadTexture(background);
     CloseWindow();

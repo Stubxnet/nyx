@@ -1,53 +1,31 @@
 #pragma once
+#include "../constants.hpp"
+#include "../enum.hpp"
 #include "raylib.h"
 
-#include <string>
-#include <vector>
-#include <stdexcept>
-
-#include "Attributes.hpp"
-
-enum class EntityType {
-    PLAYER,
-    MOB,
-    TECHNICAL
-};
-
 class Entity {
-private:
-    int32_t uuid;
-    std::string name;
-    Vector3 position;
-    Vector3 motion;
-    Attributes attributes;
-    EntityType type;
-    Model model;
-    std::vector<std::string> textures;
-
 public:
-    Entity(int32_t id, const std::string& entityName, const Vector3& initialPosition, EntityType entityType)
-        : uuid(id), name(entityName), position(initialPosition), motion({0}), type(entityType) {
-    }
-
-    ~Entity() {
-        UnloadModel(model);
-    }
-
-    int32_t getUUID() const { return uuid; }
-    std::string getName() const { return name; }
-    Vector3 getPosition() const { return position; }
-    Vector3 getMotion() const { return motion; }
+    int getEid() const { return eid; }
     EntityType getType() const { return type; }
-    Attributes getAttributes() const { return attributes; }
-    const std::vector<std::string>& getTextures() const { return textures; }
+    MoveMode getMode() const { return mode; }
+    std::shared_ptr<Body> getBody() const { return body; }
+    std::shared_ptr<BoundingBox> getBox() const { return box; }
+    Vector3 getPosition() const { return position; }
 
-    void setName(const std::string& entityName) { name = entityName; }
-    void setPosition(const Vector3& newPosition) { position = newPosition; }
-    void setMotion(const Vector3& newMotion) { motion = newMotion; }
-    void setType(EntityType entityType) { type = entityType; }
-    void setAttributes(Attributes newAttributes) { attributes = newAttributes; }
-    
-    void addTexture(const std::string& texturePath) {
-        textures.push_back(texturePath);
-    }
+    void setEid(int id) { eid = id; }
+    void setType(EntityType t) { type = t; }
+    void setMode(MoveMode m) { mode = m; }
+    void setBody(const std::shared_ptr<Body>& b) { body = b; }
+    void setBody(std::shared_ptr<Body>&& b) { body = std::move(b); }
+    void setBox(const std::shared_ptr<BoundingBox>& bx) { box = bx; }
+    void setBox(std::shared_ptr<BoundingBox>&& bx) { box = std::move(bx); }
+    void setPosition(Vector3& newPosition) { position = newPosition; }
+
+private:
+    int eid{};
+    Vector3 position;
+    EntityType type{};
+    MoveMode mode{};
+    std::shared_ptr<Body> body;
+    std::shared_ptr<BoundingBox> box;
 };

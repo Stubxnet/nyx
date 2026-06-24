@@ -39,7 +39,7 @@ struct RenderState {
 
 // Atlas parameters
 const int TILE = 32;
-const int ATLAS_COLS = 2;
-const int ATLAS_ROWS = 2;
+const int ATLAS_COLS = 4;
+const int ATLAS_ROWS = 4;
 
 constexpr int CHUNK_SIZE = 16;

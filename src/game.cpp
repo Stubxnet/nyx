@@ -66,9 +66,16 @@ void run(const Config& config) {
         currentWorld.MarkChunkAsDirty(cx, cy, cz);
     });
     
-    currentWorld.FillBlocks(-3, -3, -3, 3, 3, 3, BlockFillActions::SET);
-    currentWorld.FillBlocks(-2, -2, -2, 2, 2, 2, BlockFillActions::SET, 0);
-    currentWorld.SetBlock(0, 0, 0, 5);
+    currentWorld.FillBlocks(8, 0, 8, -8, 0, -8, BlockFillActions::SET);
+    currentWorld.SetBlock(0, 1, 0, 2);
+    currentWorld.SetBlock(1, 2, 0, 3);
+    currentWorld.SetBlock(2, 3, 0, 4);
+    currentWorld.SetBlock(3, 4, 0, 5);
+    currentWorld.SetBlock(4, 5, 0, 6);
+    currentWorld.SetBlock(5, 6, 0, 7);
+    currentWorld.SetBlock(6, 7, 0, 8);
+    currentWorld.SetBlock(7, 8, 0, 9);
+    currentWorld.FillBlocks(7, 8, 1, -7, 8, 1, BlockFillActions::SET, 23);
 
 
     //////////////////////////////////////////////////////////////////////////
@@ -249,7 +256,7 @@ void run(const Config& config) {
                         if (IsKeyPressed(KEY_ENTER)) {
                             if (!chatContent.empty() && chatContent[0] == '/') {
                                 std::string input = chatContent.substr(1);
-                                auto cameraPtr = std::make_shared<Camera>(camera);
+                                auto cameraPtr = std::make_shared<Camera3D>(camera);
                                 auto worldPtr  = std::make_shared<World>(currentWorld);
                                 CommandContext ctx{ cameraPtr, worldPtr, &renderDistance, &currentGamemode, &isCreativeFlyEnabled };
                                 HandleCommand(input, ctx);
@@ -370,6 +377,16 @@ void run(const Config& config) {
 
                 //-------------------2D Drawing--------------------
 
+                //--------------------Cursor-----------------------
+                int centerx = GetScreenWidth() / 2;
+                int centery = GetScreenHeight() / 2;
+                DrawLine(centerx - 10, centery, centerx - 3, centery, WHITE);
+                DrawLine(centerx + 3,  centery, centerx + 10, centery, WHITE);
+                DrawLine(centerx, centery - 10, centerx, centery - 3, WHITE);
+                DrawLine(centerx, centery + 3,  centerx, centery + 10, WHITE);
+
+
+                //----------------------F3------------------------
                 if (f3enabled && !HideHUD) {
                     currentFPS = GetFPS();
                     if (currentFPS < 30) fpsColor = ORANGE;

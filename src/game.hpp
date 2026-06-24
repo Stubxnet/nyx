@@ -11,6 +11,7 @@
 
 #include "lib/GameRules.hpp"
 #include "lib/Entity.hpp"
+#include "lib/Entities.hpp"
 #include "lib/Block.hpp"
 #include "lib/Chunk.hpp"
 #include "lib/World.hpp"

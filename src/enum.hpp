@@ -48,3 +48,20 @@ enum GameModes {
     BUILDER,
     UNKNOWN
 };
+
+enum EntityType {
+    PLAYER,
+    MOB_RANGED,
+    MOB_MELEE,
+    MOB_OTHER,
+    MOB_PASSIVE,
+    TECHNICAL
+};
+
+enum MoveMode {
+    WALKING,
+    FLYING,
+    CREATIVE_FLY,
+    SWIMMING,
+    STATIC
+};

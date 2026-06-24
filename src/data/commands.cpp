@@ -6,7 +6,7 @@
 #include "raylib.h"
 
 struct CommandContext {
-    std::shared_ptr<Camera> camera;
+    std::shared_ptr<Camera3D> camera;
     std::shared_ptr<World> world;
     int *renderDistance;
     GameModes *currentGamemode;

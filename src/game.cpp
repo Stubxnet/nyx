@@ -75,7 +75,10 @@ void run(const Config& config) {
     currentWorld.SetBlock(5, 6, 0, 7);
     currentWorld.SetBlock(6, 7, 0, 8);
     currentWorld.SetBlock(7, 8, 0, 9);
-    currentWorld.FillBlocks(7, 8, 1, -7, 8, 1, BlockFillActions::SET, 23);
+    currentWorld.SetBlock(0, 9, 1, 10);
+    currentWorld.SetBlock(0, 10, 1, 10);
+    currentWorld.SetBlock(7, 9, 2, 11);
+    currentWorld.FillBlocks(7, 8, 1, -7, 8, 1, BlockFillActions::SET, 10);
 
 
     //////////////////////////////////////////////////////////////////////////
@@ -288,6 +291,29 @@ void run(const Config& config) {
                         } else {
                             HideHUD = false;
                         }
+                    }
+
+                    if (IsKeyPressed(KEY_F2)) {
+                        const std::filesystem::path outDir = std::filesystem::path(genPath(config.gameDirectory, "screenshots/"));
+                        std::filesystem::create_directories(outDir);
+
+                        const auto now = std::chrono::system_clock::now();
+                        const std::time_t t = std::chrono::system_clock::to_time_t(now);
+                        
+                        std::tm tm{};
+
+                        localtime_r(&t, &tm);
+
+                        std::ostringstream oss;
+                        oss << "screenshot_"
+                            << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S")
+                        << ".png";
+
+                        const std::filesystem::path filePath = outDir / oss.str();
+
+                        TakeScreenshot(filePath.string().c_str());
+
+                        std::cout << "Taken screenshot at " << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S") << std::endl;
                     }
 
                     if (IsKeyPressed(KEY_F5)) {

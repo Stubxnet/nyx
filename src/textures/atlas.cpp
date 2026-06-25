@@ -11,6 +11,8 @@ static std::pair<int,int> AtlasCoordsForBlock(int blockId) {
         case 7: return {1,3};
         case 8: return {2,3};
         case 9: return {1,2};
+        case 10: return {0,2};
+        case 11: return {2,0};
         default: return {2,1};
     }
 };

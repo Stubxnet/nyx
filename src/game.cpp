@@ -35,9 +35,10 @@ void run(const Config& config) {
     GameRules gamerules;
 
     GameModes currentGamemode;
-    currentGamemode = CREATIVE;
+    currentGamemode = SURVIVAL;
 
     World currentWorld("Default World", {0.0f, 6.0f, 2.0f});
+    std::shared_ptr<World> worldPtr(&currentWorld, [](World*){});
     int range = renderDistance;
 
     for (int cx = -range; cx <= range; ++cx) {    
@@ -101,21 +102,28 @@ void run(const Config& config) {
 
     int cameraMode = CAMERA_FIRST_PERSON;
 
-    float player_speed = 0.1f;                // TODO: Define a class Entity and create an instance for the player
     Vector3 rotation = {0.0f, 0.0f, 0.0f};
     Vector3 movement = {0.0f, 0.0f, 0.0f};
-
-    bool collided = false;
 
     float zoom = GetMouseWheelMove() * 0.5f;
 
     static Vector2 sensitivity = { 0.001f, 0.001f };
-    static float globalTime = 0.0f;
     static float tickAccumulator = 0.0f;
 
-    float accumulator = 0.0f;
+    float accumulatorPlayer = 0.0f;
 
     bool isCreativeFlyEnabled = true;
+
+    double accumulator = 0.0;
+    double lastTime = GetTime();
+
+    bool queuedBreak = false;
+    bool queuedPlace = false;
+
+    RaycastHit currentHit{};
+    Ray currentRay{};
+
+    int handedBlockId = 1;
     //-------------------------------------
     // Vars
 
@@ -135,7 +143,7 @@ void run(const Config& config) {
 
     // F3
     bool f3enabled = true;
-    int f3textsize = GetRenderHeight() / 40;
+    int f3textsize = GetRenderHeight() / 50;
     int f3textSpacing = f3textsize / 2;
     int f3lineSize = f3textSpacing + f3textsize;
     Color fpsColor = GREEN;
@@ -150,9 +158,15 @@ void run(const Config& config) {
     // Chat
     int IsChatOpened = false;
     std::string chatContent;
-    int chatTextsize = GetRenderHeight() / 40;
+    int chatTextsize = GetRenderHeight() / 50;
 
     while (!WindowShouldClose()) {
+        if (IsWindowResized()) {
+            screenheight = GetRenderHeight();
+            screenwidth = GetRenderWidth();
+            f3textsize = GetRenderHeight() / 50;
+            chatTextsize = GetRenderHeight() / 50;
+        }
         if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) && IsKeyDown(KEY_C)) {
             std::cout << "Pressed Ctrl+C. Exiting." << std::endl;
             break;
@@ -272,19 +286,6 @@ void run(const Config& config) {
                         }
                     }
 
-                    if (IsKeyPressed(KEY_F3)) {
-                        if (IsKeyPressed(KEY_B)) {
-                            drawBoundingBoxes = true;
-                        } else if (IsKeyPressed(KEY_G)) {
-                            drawChunksGrid = true;
-                        } else if (!f3enabled) {
-                            f3enabled = true;
-                        } else {
-                            f3enabled = false;
-                        }
-
-                    }
-
                     if (IsKeyPressed(KEY_F1)) {
                         if (!HideHUD) {
                             HideHUD = true;
@@ -316,6 +317,19 @@ void run(const Config& config) {
                         std::cout << "Taken screenshot at " << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S") << std::endl;
                     }
 
+                    if (IsKeyPressed(KEY_F3)) {
+                        if (IsKeyPressed(KEY_B)) {
+                            drawBoundingBoxes = true;
+                        } else if (IsKeyPressed(KEY_G)) {
+                            drawChunksGrid = true;
+                        } else if (!f3enabled) {
+                            f3enabled = true;
+                        } else {
+                            f3enabled = false;
+                        }
+
+                    }
+
                     if (IsKeyPressed(KEY_F5)) {
                         if (cameraMode != CAMERA_THIRD_PERSON) {
                             cameraMode = CAMERA_THIRD_PERSON;
@@ -324,10 +338,25 @@ void run(const Config& config) {
                         }
                     }
 
+                    //---i know that these keybinds are not very conventionnal... but it's temporary
+                    if (IsKeyPressed(KEY_MINUS)) {
+                        handedBlockId += 1;
+                    }
+
+                    if (IsKeyPressed(KEY_EQUAL)) {
+                        handedBlockId -= 1;
+                    }
+
                     if (IsKeyPressed(KEY_T)) {
                         std::cout << "Chat opened" << std::endl;
                         IsMovementsEnabled = false;
                         IsChatOpened = true;
+                    }
+
+                    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) queuedBreak = true;
+                    if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) queuedPlace = true;
+                    if (IsKeyPressed(MOUSE_BUTTON_MIDDLE)) {
+                        handedBlockId = currentHit.id;
                     }
 
                     //------------Tick update------------------------
@@ -340,7 +369,7 @@ void run(const Config& config) {
                         isCreativeFlyEnabled,
                         movement,
                         rotation,
-                        accumulator,
+                        accumulatorPlayer,
                         tickAccumulator,
                         frame_dt,
                         mouseDelta,
@@ -348,8 +377,27 @@ void run(const Config& config) {
                         IsMovementsEnabled,
                         IsMouseEnabled
                     );
+
+                    double now = GetTime();
+                    accumulator += (now - lastTime);
+                    lastTime = now;
+
+                    while (accumulator >= TICK_DT)
+                    {
+                        currentRay = GetMouseRay(
+                            (Vector2){ (float)GetScreenWidth() * 0.5f, (float)GetScreenHeight() * 0.5f },
+                            camera
+                        );
+                        currentRay.direction = Vector3Normalize(currentRay.direction);
+
+                        currentHit = UpdateRaycastingTick(currentRay, queuedBreak, queuedPlace, worldPtr, handedBlockId);
+
+                        queuedBreak = false;
+                        queuedPlace = false;
+
+                        accumulator -= TICK_DT;
+                    }   
                     
-//                    UpdateCameraPro(&camera, movement, rotation, zoom);
                 }
                 //------------------Drawing----------------------
                 BeginDrawing();
@@ -399,6 +447,15 @@ void run(const Config& config) {
                     DrawBoundingBox(playerBox, LIME);
                 }
 
+                if (currentHit.hit)
+                {
+                    Vector3 p = {
+                        (float)currentHit.x + 0.5f,
+                        (float)currentHit.y + 0.5f,
+                        (float)currentHit.z + 0.5f
+                    };
+                    DrawCubeWires(p, 1.06f, 1.06f, 1.06f, (Color){ 220, 40, 40, 255 });
+                }
                 EndMode3D();
 
                 //-------------------2D Drawing--------------------
@@ -451,10 +508,14 @@ void run(const Config& config) {
                     ), 15, f3textSpacing + f3lineSize*16, f3textsize, f3color);
                 }
 
+                //-------------Targeted block info-------------
+                //DrawText("Hello", )
+                //----------------Chat-------------------------
                 if (IsChatOpened && !HideHUD) {
                     DrawChat(screenheight, screenwidth, chatTextsize, chatContent);
                 }
 
+                //---------------Pause screen-----------------
                 if (IsGamePaused) {
                     DrawPauseScreen(screenheight, screenwidth);
                 } 

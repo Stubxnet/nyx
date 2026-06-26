@@ -1,7 +1,44 @@
 #include "raylib.h"
 #include "raymath.h"
-#include "../constants.hpp"
+#include <memory>
 
+#include "../lib/RaycastHit.hpp"
+#include "../lib/DDA_raycasting.cpp"
+#include "../lib/World.hpp"
+#include "../constants.hpp"
+ 
+//------------------------Raycasting update--------------------------
+RaycastHit UpdateRaycastingTick(
+    const Ray& ray,
+    bool queuedBreak,
+    bool queuedPlace,
+    const std::shared_ptr<World>& world, 
+    int placingId
+) {
+    RaycastHit hit = DDA_RaycastWorld(ray, world, 200.0f);
+    if (!world) return hit;
+
+    if (hit.hit && queuedBreak)
+    {
+        world->SetBlock(hit.x, hit.y, hit.z, 0, SetblockActions::SET);
+    }
+
+    if (hit.hit && queuedPlace)
+    {
+        int64_t px = hit.x + hit.normalX;
+        int64_t py = hit.y + hit.normalY;
+        int64_t pz = hit.z + hit.normalZ;
+
+        if (world->GetBlockId(px, py, pz) == 0)
+        {
+            world->SetBlock(px, py, pz, placingId, SetblockActions::SET);
+        }
+    }
+
+    return hit;
+}
+
+//---------------------Player update---------------------------------------
 inline float ClampFloat(float v, float lo, float hi) {
     return (v < lo) ? lo : (v > hi) ? hi : v;
 }
@@ -105,8 +142,7 @@ static bool ResolveCollisions(
         } else {
             // no vertical collision: if moving downwards, not necessarily on ground yet
             if (movement.y < 0.0f) {
-                // still possibly falling; OnGround remains false unless collision happened
-                // leave body.OnGround as-is (will be set on collision)
+                // still possibly falling; OnGround remains as-is
             }
         }
     }
@@ -116,55 +152,72 @@ static bool ResolveCollisions(
     float absVx = fabsf(body.velocity.x);
     float absVz = fabsf(body.velocity.z);
 
-    // Prepare per-axis lambdas to reduce duplication
     auto tryMoveAxis = [&](char axis) -> void {
         if (axis == 'X') {
             if (movement.x == 0.0f) return;
+
+            Vector3 origCamPos{ tempCam.position.x, tempCam.position.y, tempCam.position.z };
+
             tempCam.position.x += movement.x;
             BoundingBox playerBox = CreatePlayerHitbox(tempCam);
             if (HitboxIntersectsSolidAtCamera(tempCam, playerBox, world)) {
-                // if on ground, try stepping
                 if (body.OnGround) {
-                    // store original positions
                     float origY = tempCam.position.y;
-                    // try stepping up
+
+                    // rollback x first (so stepping can retry the same axis movement)
+                    tempCam.position.x = origCamPos.x;
+
+                    // try step up from the rolled-back x position
                     if (TryStepUpAndResolve<WorldType, GamemodeType>(tempCam, movement, movement, world, STEP_HEIGHT)) {
-                        // after stepping, also re-test current axis movement collision
+                        // now retry the X movement at the stepped height
+                        tempCam.position.x = origCamPos.x + movement.x;
+
                         BoundingBox steppedBox = CreatePlayerHitbox(tempCam);
                         if (HitboxIntersectsSolidAtCamera(tempCam, steppedBox, world)) {
                             // stepping didn't clear collision -> rollback axis and y
-                            tempCam.position.x -= movement.x;
+                            tempCam.position.x = origCamPos.x;
                             tempCam.position.y = origY;
                             movement.x = 0.0f;
                             collided = true;
                         } else {
-                            // stepping succeeded: keep stepped y and keep axis movement
                             collided = true;
                         }
                     } else {
-                        // cannot step: rollback axis
-                        tempCam.position.x -= movement.x;
+                        // cannot step: keep original x rollback
+                        tempCam.position.x = origCamPos.x;
                         movement.x = 0.0f;
                         collided = true;
                     }
                 } else {
                     // not on ground -> simple rollback
-                    tempCam.position.x -= movement.x;
+                    tempCam.position.x = origCamPos.x;
                     movement.x = 0.0f;
                     collided = true;
                 }
             }
         } else if (axis == 'Z') {
             if (movement.z == 0.0f) return;
+
+            Vector3 origCamPos{ tempCam.position.x, tempCam.position.y, tempCam.position.z };
+
             tempCam.position.z += movement.z;
             BoundingBox playerBox = CreatePlayerHitbox(tempCam);
             if (HitboxIntersectsSolidAtCamera(tempCam, playerBox, world)) {
                 if (body.OnGround) {
                     float origY = tempCam.position.y;
+
+                    // rollback z first (so stepping can retry the same axis movement)
+                    tempCam.position.z = origCamPos.z;
+
+                    // try step up from the rolled-back z position
                     if (TryStepUpAndResolve<WorldType, GamemodeType>(tempCam, movement, movement, world, STEP_HEIGHT)) {
+                        // now retry the Z movement at the stepped height
+                        tempCam.position.z = origCamPos.z + movement.z;
+
                         BoundingBox steppedBox = CreatePlayerHitbox(tempCam);
                         if (HitboxIntersectsSolidAtCamera(tempCam, steppedBox, world)) {
-                            tempCam.position.z -= movement.z;
+                            // stepping didn't clear collision -> rollback axis and y
+                            tempCam.position.z = origCamPos.z;
                             tempCam.position.y = origY;
                             movement.z = 0.0f;
                             collided = true;
@@ -172,12 +225,14 @@ static bool ResolveCollisions(
                             collided = true;
                         }
                     } else {
-                        tempCam.position.z -= movement.z;
+                        // cannot step: keep original z rollback
+                        tempCam.position.z = origCamPos.z;
                         movement.z = 0.0f;
                         collided = true;
                     }
                 } else {
-                    tempCam.position.z -= movement.z;
+                    // not on ground -> simple rollback
+                    tempCam.position.z = origCamPos.z;
                     movement.z = 0.0f;
                     collided = true;
                 }
@@ -186,11 +241,9 @@ static bool ResolveCollisions(
     };
 
     if (absVz > absVx) {
-        // Y already handled; do X then Z
         tryMoveAxis('X');
         tryMoveAxis('Z');
     } else {
-        // Y already handled; do Z then X
         tryMoveAxis('Z');
         tryMoveAxis('X');
     }
@@ -320,9 +373,9 @@ void UpdatePlayerMovementTick(
     RenderState &renderState,
     WorldType &world,
     const GamemodeType &currentGamemode,
-    bool normalModeFlag,               // isCreativeFlyEnabled
-    Vector3 &movement,                 // out movement applied this frame (world-space)
-    Vector3 &rotation,                 // yaw/pitch (radians)
+    bool normalModeFlag,
+    Vector3 &movement,
+    Vector3 &rotation,
     float &accumulator,
     float &tickAccumulator,
     float dt,
@@ -331,7 +384,7 @@ void UpdatePlayerMovementTick(
     bool IsMovementsEnabled,
     bool IsMouseEnabled
 ) {
-    // clamp dt
+
     if (dt > 0.25f) dt = 0.25f;
     accumulator += dt;
 
@@ -347,11 +400,10 @@ void UpdatePlayerMovementTick(
         return;
     }
 
-    // ---- Normal/Survival mode ----
     Vector2 inputDir = {0.0f, 0.0f};
     if (IsMovementsEnabled) {
-        if (IsKeyDown(KEY_W)) inputDir.y -= 1.0f; 
-        if (IsKeyDown(KEY_S)) inputDir.y += 1.0f;        
+        if (IsKeyDown(KEY_W)) inputDir.y -= 1.0f;
+        if (IsKeyDown(KEY_S)) inputDir.y += 1.0f;
         if (IsKeyDown(KEY_D)) inputDir.x -= 1.0f;
         if (IsKeyDown(KEY_A)) inputDir.x += 1.0f;
     }
@@ -417,7 +469,11 @@ void UpdatePlayerMovementTick(
 
     tickAccumulator += dt;
     float lerpFactor = ClampFloat(tickAccumulator / TICK_DT, 0.0f, 1.0f);
-    Vector3 interpolatedPos = Vector3Lerp(renderState.previousCameraPosition, Vector3Add(body.position, (Vector3){0.0f, (IsKeyDown(KEY_LEFT_CONTROL) ? SNEAK_EYES_Y : EYES_Y), 0.0f}), lerpFactor);
+    Vector3 interpolatedPos = Vector3Lerp(
+        renderState.previousCameraPosition,
+        Vector3Add(body.position, (Vector3){0.0f, (IsKeyDown(KEY_LEFT_CONTROL) ? SNEAK_EYES_Y : EYES_Y), 0.0f}),
+        lerpFactor
+    );
 
     camera.position = interpolatedPos;
 

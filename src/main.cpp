@@ -182,6 +182,7 @@ int main(int argc, char *argv[]) {
 
     if (enableVsync) SetConfigFlags(FLAG_VSYNC_HINT);
     if (enableMSAA4x) SetConfigFlags(FLAG_MSAA_4X_HINT);
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
 
     std::ios_base::sync_with_stdio(false);
 

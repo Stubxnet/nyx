@@ -124,6 +124,9 @@ void run(const Config& config) {
     Ray currentRay{};
 
     int handedBlockId = 1;
+
+    bool placingAllowed = true;
+    bool breakingAllowed = true;
     //-------------------------------------
     // Vars
 
@@ -221,6 +224,14 @@ void run(const Config& config) {
                     rotation.x -= mouseDelta.x * sensitivity.x; // yaw
                     rotation.y -= mouseDelta.y * sensitivity.y; // pitch
 
+                    //------------Basic rights management-----------
+                    if (currentGamemode == SPECTATOR) {
+                        breakingAllowed = false;
+                        placingAllowed = false;
+                    } else {
+                        breakingAllowed = true;
+                        placingAllowed = true;
+                    }
                     //-------------Update dirty chunks-----------
                     for (size_t i = 0; i < currentWorld.GetChunkCount(); ++i) {
                         auto ch = currentWorld.GetChunk(i);
@@ -390,7 +401,7 @@ void run(const Config& config) {
                         );
                         currentRay.direction = Vector3Normalize(currentRay.direction);
 
-                        currentHit = UpdateRaycastingTick(currentRay, queuedBreak, queuedPlace, worldPtr, handedBlockId);
+                        currentHit = UpdateRaycastingTick(currentRay, queuedBreak, queuedPlace, worldPtr, handedBlockId, breakingAllowed, placingAllowed);
 
                         queuedBreak = false;
                         queuedPlace = false;
@@ -424,7 +435,11 @@ void run(const Config& config) {
                             if (!currentWorld.IsChunkLoaded(cx, cy, cz)) continue;
 
                             auto chunk = currentWorld.GetChunkAt(cx, cy, cz);
-                            if (!chunk) continue;
+                            if (!chunk) {
+                                auto chunk = std::make_shared<Chunk>(cx, cy, cz);
+                                currentWorld.AddChunk(chunk);
+                                currentWorld.MarkChunkAsDirty(cx, cy, cz);
+                            }
 
                             Model model = chunk->GetModel();
                             if (chunk->IsModelEmpty()) continue;

@@ -13,17 +13,19 @@ RaycastHit UpdateRaycastingTick(
     bool queuedBreak,
     bool queuedPlace,
     const std::shared_ptr<World>& world, 
-    int placingId
+    int placingId,
+    bool breakingAllowed,
+    bool placingAllowed
 ) {
     RaycastHit hit = DDA_RaycastWorld(ray, world, 200.0f);
     if (!world) return hit;
 
-    if (hit.hit && queuedBreak)
+    if (hit.hit && queuedBreak && breakingAllowed)
     {
         world->SetBlock(hit.x, hit.y, hit.z, 0, SetblockActions::SET);
     }
 
-    if (hit.hit && queuedPlace)
+    if (hit.hit && queuedPlace && placingAllowed)
     {
         int64_t px = hit.x + hit.normalX;
         int64_t py = hit.y + hit.normalY;

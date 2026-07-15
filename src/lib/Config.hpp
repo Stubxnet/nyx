@@ -10,6 +10,7 @@ struct Config {
     std::string windowTitle;
     int renderDistance;
     float gamma;
+    bool atlasRegeneration;
 };
 
 #endif // CONFIG_HPP

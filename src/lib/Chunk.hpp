@@ -1,89 +1,113 @@
 #pragma once
 #include "../constants.hpp"
-#include <memory>
 #include <array>
 #include <cstdint>
-#include <cmath>
-#include "Block.hpp"
 #include "raylib.h"
 
-struct ChunkKey { int32_t x, y, z; };
+enum class ChunkState : uint8_t {
+    Unloaded,
+    Generated,
+    Dirty,
+    Meshing,
+    Ready,
+    Unloading
+};
 
 class Chunk {
 public:
-    Chunk(int cx = 0, int cy = 0, int cz = 0)
+    using BlockId = uint16_t;
+
+    Chunk(int32_t cx = 0, int32_t cy = 0, int32_t cz = 0)
         : cx(cx), cy(cy), cz(cz),
-          empty(true), defaultid(0),
-          dirty(false), loaded(false),
-          model{0}
+          empty(true), dirty(false), loaded(false),
+          state(ChunkState::Unloaded), model{0}
     {
-        InitializeBlocks(defaultid);
+        InitializeBlocks(0);
     }
 
-    std::shared_ptr<Block> GetBlock(int x, int y, int z) const {
-        if (IsValidLocalPosition(x, y, z)) return blocks[x][y][z];
-        return nullptr;
-    }
-
-    void SetBlockId(int x, int y, int z, int newId) {
-        if (IsValidLocalPosition(x, y, z) && blocks[x][y][z]) {
-            blocks[x][y][z]->SetId(newId);
-            if (newId != 0) empty = false;
+    ~Chunk() {
+        if (model.meshCount > 0) {
+            UnloadModel(model);
+            model = Model{0};
         }
     }
 
-    int GetChunkX() const { return cx; }
-    int GetChunkY() const { return cy; }
-    int GetChunkZ() const { return cz; }
+    int32_t GetChunkX() const { return cx; }
+    int32_t GetChunkY() const { return cy; }
+    int32_t GetChunkZ() const { return cz; }
+
+    ChunkState GetState() const { return state; }
+    void SetState(ChunkState s) { state = s; }
+
+    BlockId GetBlock(int x, int y, int z) const {
+        if (!IsValidLocalPosition(x, y, z)) return 0;
+        return blocks[x][y][z];
+    }
+
+    void SetBlockId(int x, int y, int z, BlockId newId) {
+        if (!IsValidLocalPosition(x, y, z)) return;
+        blocks[x][y][z] = newId;
+        dirty = true;
+        if (newId != 0) empty = false;
+    }
 
     bool IsChunkEmpty() const { return empty; }
-
     bool IsChunkDirty() const { return dirty; }
-    void MarkAsDirty() { dirty = true; }
+    bool IsChunkLoaded() const { return loaded; }
+
+    void MarkAsDirty() { dirty = true; state = ChunkState::Dirty; }
     void UnmarkAsDirty() { dirty = false; }
 
-    bool IsChunkLoaded() const { return loaded; }
-    void MarkAsLoaded() { loaded = true; }
+    void MarkAsLoaded() { loaded = true; state = ChunkState::Ready; }
     void UnmarkAsLoaded() { loaded = false; }
 
     Model& GetModel() { return model; }
 
-    bool IsModelEmpty() {
-        return (model.meshCount == 0);
+    bool IsModelEmpty() const { return model.meshCount == 0; }
+
+    void UpdateChunkModel(Model m) {
+        if (model.meshCount > 0) {
+            UnloadModel(model);
+        }
+        model = m;
     }
 
-    void UpdateChunkModel(Model& m) { model = m; }
-
     void SetChunkMaterialTexture(Texture2D& atlas) {
-        SetMaterialTexture(&model.materials[0], MATERIAL_MAP_DIFFUSE, atlas);
+        if (model.meshCount > 0 && model.materials) {
+            SetMaterialTexture(&model.materials[0], MATERIAL_MAP_DIFFUSE, atlas);
+        }
     }
 
     void UnloadChunk() {
-        UnloadModel(model);
-        model = Model{0};
+        if (model.meshCount > 0) {
+            UnloadModel(model);
+            model = Model{0};
+        }
         loaded = false;
         dirty = false;
+        state = ChunkState::Unloaded;
     }
 
-
 private:
-    std::array<std::array<std::array<std::shared_ptr<Block>, CHUNK_SIZE>, CHUNK_SIZE>, CHUNK_SIZE> blocks;
-    int cx, cy, cz;
+    std::array<std::array<std::array<BlockId, CHUNK_SIZE>, CHUNK_SIZE>, CHUNK_SIZE> blocks;
+    int32_t cx, cy, cz;
     bool empty;
-    int defaultid;
     bool dirty;
     bool loaded;
+    ChunkState state;
     Model model{0};
 
-    void InitializeBlocks(int id) {
+    void InitializeBlocks(BlockId id) {
         for (int x = 0; x < CHUNK_SIZE; ++x)
             for (int y = 0; y < CHUNK_SIZE; ++y)
                 for (int z = 0; z < CHUNK_SIZE; ++z)
-                    blocks[x][y][z] = std::make_shared<Block>(id);
+                    blocks[x][y][z] = id;
         empty = (id == 0);
     }
 
     bool IsValidLocalPosition(int x, int y, int z) const {
-        return (x >= 0 && x < CHUNK_SIZE && y >= 0 && y < CHUNK_SIZE && z >= 0 && z < CHUNK_SIZE);
+        return x >= 0 && x < CHUNK_SIZE &&
+               y >= 0 && y < CHUNK_SIZE &&
+               z >= 0 && z < CHUNK_SIZE;
     }
 };

@@ -1,0 +1,13 @@
+{
+  "id": 4,
+  "displayName": "Iron Ore",
+  "resistance": 30,
+  "faces": {
+    "top": "iron_ore",
+    "bottom": "iron_ore",
+    "east": "iron_ore",
+    "west": "iron_ore",
+    "north": "iron_ore",
+    "south": "iron_ore"
+  }
+}

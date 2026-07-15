@@ -1,0 +1,13 @@
+{
+  "id": 1,
+  "displayName": "Dirt",
+  "resistance": 30,
+  "faces": {
+    "top": "dirt",
+    "bottom": "dirt",
+    "east": "dirt",
+    "west": "dirt",
+    "north": "dirt",
+    "south": "dirt"
+  }
+}

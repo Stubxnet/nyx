@@ -1,0 +1,13 @@
+{
+  "id": 7,
+  "displayName": "Grass Block",
+  "resistance": 30,
+  "faces": {
+    "top": "grass_top",
+    "bottom": "dirt",
+    "east": "grass",
+    "west": "grass",
+    "north": "grass",
+    "south": "grass"
+  }
+}

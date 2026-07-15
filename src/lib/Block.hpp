@@ -1,15 +1,17 @@
 #pragma once
-#include "raylib.h"
+#include <cstdint>
 
 class Block {
 public:
-    Block(int id = 0) : id(id), IsOpaque(false) {}
+    using BlockId = uint16_t;
 
-    int GetId() const { return id; }
-    void SetId(int newId) { id = newId; IsOpaque = (newId != 0); }
-    bool GetIfIsOpaque() const { return IsOpaque; }
+    Block(BlockId id = 0) : id(id) {}
+
+    BlockId GetId() const { return id; }
+    void SetId(BlockId newId) { id = newId; }
+
+    bool IsOpaque() const { return id != 0; }
 
 private:
-    int id;
-    bool IsOpaque;
+    BlockId id;
 };

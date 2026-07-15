@@ -28,7 +28,6 @@ enum class SetblockActions {
     SET,
     REPLACE,
     KEEP,
-    BREAK
 };
 
 // types of blocks filling actions
@@ -49,6 +48,7 @@ enum GameModes {
     UNKNOWN
 };
 
+// entity type
 enum EntityType {
     PLAYER,
     MOB_RANGED,
@@ -58,10 +58,22 @@ enum EntityType {
     TECHNICAL
 };
 
+// moving mode (for entities)
 enum MoveMode {
     WALKING,
     FLYING,
     CREATIVE_FLY,
     SWIMMING,
     STATIC
+};
+
+// block types (actually only full but we will add "STAIRS", "SLAB" etc)
+enum BlockType {
+    FULL
+};
+
+// tag for chunk loading
+enum class ChunkTag {
+    NONE,
+    ALWAYS_LOADED
 };

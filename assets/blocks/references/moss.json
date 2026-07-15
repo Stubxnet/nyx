@@ -1,0 +1,13 @@
+{
+  "id": 6,
+  "displayName": "Moss Block",
+  "resistance": 30,
+  "faces": {
+    "top": "grass_top",
+    "bottom": "grass_top",
+    "east": "grass_top",
+    "west": "grass_top",
+    "north": "grass_top",
+    "south": "grass_top"
+  }
+}

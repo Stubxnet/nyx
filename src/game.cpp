@@ -23,10 +23,29 @@ void run(const Config& config) {
     Texture2D background = LoadTexture(genPath(config.gameDirectory, 
                   "assets/textures/background/background1920x1080p.png").c_str());
     
-    Image atlasImage = LoadImage(genPath(config.gameDirectory, "assets/textures/atlas.png").c_str());
-    Texture2D atlas = LoadTextureFromImage(atlasImage);
+    //-------------------Block defaults loading--------------------
+    const fs::path gameDir = fs::path(config.gameDirectory);
+    const fs::path texturesDir = gameDir / "assets/blocks/textures";
+    const fs::path savesDir    = gameDir / "assets/blocks/saves";
+    const fs::path atlasPngPath = savesDir / "atlas.png";
+    const fs::path atlasUvPath  = savesDir / "atlas_uv.json";
 
-    UnloadImage(atlasImage);
+    BlocksDefaults blocksDefaults;
+    auto loaded = loadBlockReferences(genPath(config.gameDirectory, "assets/blocks/references/"), texturesDir);
+    blocksDefaults.loaded = std::move(loaded);
+
+    sortIds(blocksDefaults);
+
+    if (!config.atlasRegeneration && tryLoadSavedAtlas(blocksDefaults, atlasPngPath, atlasUvPath)) {
+        std::cout << "Loaded saved atlas from disk: " << atlasPngPath.string() << "\n";
+    } else {
+        buildAtlasForBlocks(blocksDefaults, texturesDir, atlasPngPath, atlasUvPath);
+    }
+
+    Texture2D atlas = blocksDefaults.atlasTex;
+
+    std::cout << "blocks count=" << blocksDefaults.loaded.blocks.size() << "\n";
+    std::cout << "sortedIds count=" << blocksDefaults.sortedIds.size() << "\n";
 
     //////////////////////////////////////////////////////////////////////////
     /////////////////      WORLD CLASS INITIALIZATION        /////////////////
@@ -37,7 +56,7 @@ void run(const Config& config) {
     GameModes currentGamemode;
     currentGamemode = SURVIVAL;
 
-    World currentWorld("Default World", {0.0f, 6.0f, 2.0f});
+    World currentWorld("Default World", {0.0f, 9.5f, 2.0f});
     std::shared_ptr<World> worldPtr(&currentWorld, [](World*){});
     int range = renderDistance;
 
@@ -51,23 +70,15 @@ void run(const Config& config) {
     }
     
     SetAtlasTexture(atlas);
-    SetAtlasParams(TILE, ATLAS_COLS, ATLAS_ROWS);
+    SetBlockDefaults(&blocksDefaults);
 
-    for (size_t i = 0; i < currentWorld.GetChunkCount(); ++i) {
-        auto ch = currentWorld.GetChunk(i);
-        if (!ch) continue;
-        int32_t cx = ch->GetChunkX();
-        int32_t cy = ch->GetChunkY();
-        int32_t cz = ch->GetChunkZ();
-
-        currentWorld.MarkChunkAsDirty(cx, cy, cz);
-    }
+    currentWorld.MarkAllChunksDirty();
 
     currentWorld.SetChunkModifiedCallback([&](int32_t cx,int32_t cy,int32_t cz){
         currentWorld.MarkChunkAsDirty(cx, cy, cz);
     });
     
-    currentWorld.FillBlocks(8, 0, 8, -8, 0, -8, BlockFillActions::SET);
+    currentWorld.FillBlocks(8, 8, 8, -8, -8, -8, BlockFillActions::SET, 11);
     currentWorld.SetBlock(0, 1, 0, 2);
     currentWorld.SetBlock(1, 2, 0, 3);
     currentWorld.SetBlock(2, 3, 0, 4);
@@ -127,6 +138,12 @@ void run(const Config& config) {
 
     bool placingAllowed = true;
     bool breakingAllowed = true;
+
+    int blockPlacingCooldown = 0;
+
+    bool applyBlockPlacementRestrictions = true;
+
+    MoveMode playerMovementMode = WALKING;
     //-------------------------------------
     // Vars
 
@@ -181,6 +198,7 @@ void run(const Config& config) {
                 if (action == MenuAction::PLAY) currentScreen = GAME;
                 else if (action == MenuAction::OPTIONS) currentScreen = OPTIONS;
                 else if (action == MenuAction::QUIT) {
+                    unloadAtlas(blocksDefaults);
                     UnloadTexture(atlas);
                     UnloadTexture(background);
                     CloseWindow();
@@ -193,6 +211,13 @@ void run(const Config& config) {
 
                 int key = GetCharPressed();
                 renderState.previousCameraPosition = camera.position;
+                
+                currentWorld.ClearRendered();
+                // get camera position in int
+
+                int32_t camCx = (int)std::floor(camera.position.x / (float)CHUNK_SIZE);
+                int32_t camCy = (int)std::floor(camera.position.y / (float)CHUNK_SIZE);
+                int32_t camCz = (int)std::floor(camera.position.z / (float)CHUNK_SIZE);
 
                 if (IsKeyPressed(KEY_ESCAPE)) {
                     if (IsChatOpened) {
@@ -233,33 +258,40 @@ void run(const Config& config) {
                         placingAllowed = true;
                     }
                     //-------------Update dirty chunks-----------
-                    for (size_t i = 0; i < currentWorld.GetChunkCount(); ++i) {
-                        auto ch = currentWorld.GetChunk(i);
-                        if (!ch) continue;
-                        int32_t cx = ch->GetChunkX();
-                        int32_t cy = ch->GetChunkY();
-                        int32_t cz = ch->GetChunkZ();
+                    size_t dirtyBudget = MAX_DIRTY_CHUNKS_PER_FRAME;
 
-                        if (!currentWorld.IsChunkDirty(cx, cy, cz)) continue;
+                    currentWorld.ProcessDirtyQueue(
+                        (int32_t)dirtyBudget,
+                        [&](int32_t cx, int32_t cy, int32_t cz) {
 
-                        if (currentWorld.IsChunkLoaded(cx, cy, cz)) {
-                            currentWorld.UnloadChunk(cx, cy, cz);
-                            currentWorld.UnmarkChunkAsLoaded(cx, cy, cz);
+                            auto chunk = currentWorld.GetChunkAt(cx, cy, cz);
+                            if (!chunk) return;
+                            if (!chunk->IsChunkDirty()) return;
+
+                            chunk->SetState(ChunkState::Meshing);
+
+                            if (chunk->IsChunkLoaded()) {
+                                chunk->UnloadChunk();
+                                chunk->UnmarkAsLoaded();
+                            }
+
+                            Model m = BuildModelForChunk(chunk, &currentWorld);
+
+                            if (m.meshCount > 0) {
+                                chunk->UpdateChunkModel(m);
+                                if (atlas.id) {
+                                    chunk->SetChunkMaterialTexture(atlas);
+                                }
+                                chunk->MarkAsLoaded();
+                                chunk->UnmarkAsDirty();
+                                chunk->SetState(ChunkState::Ready);
+                            } else {
+                                chunk->UpdateChunkModel(Model{0});
+                                chunk->UnmarkAsLoaded();
+                                chunk->SetState(ChunkState::Generated);
+                            }
                         }
-
-                        Model m = BuildModelForChunk(ch, &currentWorld);
-                        if (m.meshCount > 0) {
-                            currentWorld.UpdateChunkModel(cx, cy, cz, m);
-                            if (atlas.id) currentWorld.SetChunkMaterialTexture(cx, cy, cz, atlas);
-                            currentWorld.MarkChunkAsLoaded(cx, cy, cz);
-                        } else {
-                            Model empty = Model{0};
-                            currentWorld.UpdateChunkModel(cx, cy, cz, empty);
-                            currentWorld.UnmarkChunkAsLoaded(cx, cy, cz);
-                        }
-
-                        currentWorld.UnmarkChunkAsDirty(cx, cy, cz);
-                    }
+                    );
                     // ---------- Cursor management
 
                     if (!IsMouseEnabled) {
@@ -401,7 +433,7 @@ void run(const Config& config) {
                         );
                         currentRay.direction = Vector3Normalize(currentRay.direction);
 
-                        currentHit = UpdateRaycastingTick(currentRay, queuedBreak, queuedPlace, worldPtr, handedBlockId, breakingAllowed, placingAllowed);
+                        currentHit = UpdateRaycastingTick(currentRay, camera, queuedBreak, queuedPlace, worldPtr, handedBlockId, breakingAllowed, placingAllowed, applyBlockPlacementRestrictions, blockPlacingCooldown);
 
                         queuedBreak = false;
                         queuedPlace = false;
@@ -416,15 +448,6 @@ void run(const Config& config) {
                 BeginMode3D(camera);
                 //--------------3D Drawing-----------------------
 
-                // get camera position in int
-                int wx = (int)floorf(camera.position.x);
-                int wy = (int)floorf(camera.position.y);
-                int wz = (int)floorf(camera.position.z);
-
-                auto [camCx, camLx] = World::WorldToChunkAndLocal(wx);
-                auto [camCy, camLy] = World::WorldToChunkAndLocal(wy);
-                auto [camCz, camLz] = World::WorldToChunkAndLocal(wz);
-
                 for (int ox = -renderDistance; ox <= renderDistance; ++ox) {
                     for (int oy = -renderDistance; oy <= renderDistance; ++oy) {
                         for (int oz = -renderDistance; oz <= renderDistance; ++oz) {
@@ -432,13 +455,17 @@ void run(const Config& config) {
                             int cy = camCy + oy;
                             int cz = camCz + oz;
 
-                            if (!currentWorld.IsChunkLoaded(cx, cy, cz)) continue;
-
                             auto chunk = currentWorld.GetChunkAt(cx, cy, cz);
                             if (!chunk) {
                                 auto chunk = std::make_shared<Chunk>(cx, cy, cz);
                                 currentWorld.AddChunk(chunk);
                                 currentWorld.MarkChunkAsDirty(cx, cy, cz);
+                                continue;
+                            }
+
+                            if (!currentWorld.IsChunkLoaded(cx, cy, cz)) {
+                                currentWorld.MarkChunkAsDirty(cx, cy, cz);
+                                continue;
                             }
 
                             Model model = chunk->GetModel();
@@ -469,11 +496,11 @@ void run(const Config& config) {
                         (float)currentHit.y + 0.5f,
                         (float)currentHit.z + 0.5f
                     };
-                    DrawCubeWires(p, 1.06f, 1.06f, 1.06f, (Color){ 220, 40, 40, 255 });
+                    DrawCubeWires(p, 1.001f, 1.001f, 1.001f, (Color){ 220, 40, 40, 255 });
                 }
                 EndMode3D();
 
-                //-------------------2D Drawing--------------------
+                //-----------------------------2D Drawing-----------------------------
 
                 //--------------------Cursor-----------------------
                 int centerx = GetScreenWidth() / 2;
@@ -540,7 +567,8 @@ void run(const Config& config) {
 
             case OPTIONS: {    
                 OptionsAction action = DrawAndHandleOptions(screenwidth, screenheight, background, backgroundColor, backgroundColor);    
-                if (action == OptionsAction::QUIT) {        
+                if (action == OptionsAction::QUIT) {   
+                    unloadAtlas(blocksDefaults);     
                     UnloadTexture(atlas);        
                     UnloadTexture(background);        
                     CloseWindow();    
@@ -552,6 +580,7 @@ void run(const Config& config) {
         }
     }
 
+    unloadAtlas(blocksDefaults);
     UnloadTexture(atlas);
     UnloadTexture(background);
     CloseWindow();

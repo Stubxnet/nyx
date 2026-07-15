@@ -21,14 +21,14 @@ static bool parseCommandLine(int argc, char* argv[],
                              bool &enableMSAA4x,
                              int &overrideTargetFPS,
                              int &overrideRaylibLogLevel) {
-        showHelp = false;
-            for (int i = 1; i < argc; ++i) {
-                std::string a = argv[i];
-                if ((a == "--game-dir" || a == "-g") && i + 1 < argc) {
-                    config.gameDirectory = argv[++i];
-                } else if ((a == "--username" || a == "-u") && i + 1 < argc) {
-                    config.username = argv[++i];
-                } else if ((a == "--render-distance" || a == "-r") && i + 1 < argc) {
+    showHelp = false;
+    for (int i = 1; i < argc; ++i) {
+        std::string a = argv[i];
+        if ((a == "--game-dir" || a == "-g") && i + 1 < argc) {
+            config.gameDirectory = argv[++i];
+        } else if ((a == "--username" || a == "-u") && i + 1 < argc) {
+            config.username = argv[++i];
+        } else if ((a == "--render-distance" || a == "-r") && i + 1 < argc) {
             try {
                 config.renderDistance = std::stoi(argv[++i]);
                 if (config.renderDistance <= 0) {
@@ -73,6 +73,8 @@ static bool parseCommandLine(int argc, char* argv[],
                 std::cerr << "Invalid value for --raylib-log-level: must be DEBUG | INFO | WARNING | ERROR\n";
                 return false;
             }
+        } else if (a == "-ra" || a == "--regen-atlas") {
+            config.atlasRegeneration = true;
         } else {
             std::cerr << "Unknown argument: " << a << '\n';
             return false;
@@ -94,6 +96,7 @@ static void printUsage(const char* progName) {
               << "  -m, --msaa, --enable-msaa-4x Enable 4x MSAA (sets FLAG_MSAA_4X_HINT)\n"
               << "  -t, --target-fps INT         Target FPS (overrides config)\n"
               << "  -rl, --raylib-log-level LVL  Raylib log level: DEBUG | INFO | WARNING | ERROR\n"
+              << "  -ra, --regen-atlas           Regenerate texture atlas at startup without using old atlas\n"
               << "  -h, --help                   Show this help\n";
 }
 
@@ -143,6 +146,7 @@ int main(int argc, char *argv[]) {
         config.targetFPS = 60;
         config.windowTitle = "Nyx";
         config.gamma = 2.2f;
+        config.atlasRegeneration = false;
         if (config.username.empty()) config.username = "DefaultUser";
         if (config.renderDistance <= 0) config.renderDistance = 12;
     }

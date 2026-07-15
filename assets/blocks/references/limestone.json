@@ -1,0 +1,13 @@
+{
+  "id": 5,
+  "displayName": "Limestone",
+  "resistance": 30,
+  "faces": {
+    "top": "limestone",
+    "bottom": "limestone",
+    "east": "limestone",
+    "west": "limestone",
+    "north": "limestone",
+    "south": "limestone"
+  }
+}

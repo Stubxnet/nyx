@@ -3,9 +3,10 @@
 
 #define TICK_RATE 20.0f
 #define TICK_DT (1.0f / TICK_RATE)
+#define BLOCK_PLACING_TICK_COOLDOWN 10
 
 #define GRAVITY 0.08f
-#define JUMP_VELO 0.42f
+#define JUMP_VELO 0.52f
 #define AIR_DRAG 0.98f
 #define SLIPPERINESS 0.6f
 #define GROUND_FRICTION (SLIPPERINESS * 0.91f)
@@ -39,7 +40,7 @@ struct RenderState {
 
 // Atlas parameters
 const int TILE = 32;
-const int ATLAS_COLS = 4;
-const int ATLAS_ROWS = 4;
 
+// Chunk updates parameters
 constexpr int CHUNK_SIZE = 16;
+constexpr size_t MAX_DIRTY_CHUNKS_PER_FRAME = 12;

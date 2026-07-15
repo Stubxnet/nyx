@@ -7,7 +7,7 @@
 #include <cmath>
 
 #include "utils/colors.cpp"
-#include "utils/ioutils.cpp"
+#include "utils/IO_Utils.cpp"
 
 #include "lib/GameRules.hpp"
 #include "lib/Entity.hpp"
@@ -16,6 +16,7 @@
 #include "lib/Chunk.hpp"
 #include "lib/World.hpp"
 #include "lib/Config.hpp"
+#include "lib/BlockDefaults.hpp"
 
 #include "render/renderutils.cpp"
 #include "render/Mesher.cpp"
@@ -28,6 +29,8 @@
 #include "ui/drawingUtils.hpp"
 
 #include "data/commands.cpp"
+#include "data/AtlasGenerator.cpp"
+#include "data/BlocksDefaults.cpp"
 
 #include "constants.hpp"
 #include "enum.hpp"

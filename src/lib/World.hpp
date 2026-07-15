@@ -2,102 +2,186 @@
 #include <string>
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
+#include <queue>
 #include <cstdint>
-#include <vector>
 #include <algorithm>
 #include <functional>
+#include <tuple>
+#include <iostream>
 #include "Chunk.hpp"
-#include "../enum.hpp"
 
-static inline int64_t ChunkKey(int cx, int cy, int cz) {
+static inline int64_t PackChunkKey(int32_t x, int32_t y, int32_t z) {
+    const int64_t BIAS = 1 << 20;
     const int64_t MASK = (1LL << 21) - 1;
-    auto enc = ( (int64_t)(cx & MASK) << 42 ) | ( (int64_t)(cy & MASK) << 21 ) | (int64_t)(cz & MASK);
-    return enc;
+    int64_t ux = ((int64_t)x + BIAS) & MASK;
+    int64_t uy = ((int64_t)y + BIAS) & MASK;
+    int64_t uz = ((int64_t)z + BIAS) & MASK;
+    return (ux << 42) | (uy << 21) | uz;
+}
+
+static inline std::tuple<int32_t,int32_t,int32_t> UnpackChunkKey(int64_t key) {
+    const int64_t BIAS = 1 << 20;
+    const int64_t MASK = (1LL << 21) - 1;
+    int32_t x = (int32_t)(((key >> 42) & MASK) - BIAS);
+    int32_t y = (int32_t)(((key >> 21) & MASK) - BIAS);
+    int32_t z = (int32_t)((key & MASK) - BIAS);
+    return {x, y, z};
 }
 
 class World {
 public:
+    using ChunkModifiedCallback = std::function<void(int32_t, int32_t, int32_t)>;
+
     World(const std::string& name, Vector3 spawnpoint) : name(name), spawnpoint(spawnpoint) {}
 
-    using ChunkModifiedCallback = std::function<void(int32_t cx,int32_t cy,int32_t cz)>;
+    ~World() {
+        ClearAllChunks();
+    }
+
     void SetChunkModifiedCallback(ChunkModifiedCallback cb) { chunkModifiedCb = cb; }
 
-    bool IsChunkEmpty(int32_t cx, int32_t cy, int32_t cz) const {
-        auto chunk = GetChunkAt(cx, cy, cz);
-        if (!chunk) return true;
-        return chunk->IsChunkEmpty();
+    std::shared_ptr<Chunk> GetChunkAt(int32_t cx, int32_t cy, int32_t cz) const {
+        auto it = chunks.find(PackChunkKey(cx, cy, cz));
+        if (it == chunks.end()) return nullptr;
+        return it->second;
     }
 
-    bool IsChunkDirty(int32_t cx, int32_t cy, int32_t cz) const {
-        auto chunk = GetChunkAt(cx, cy, cz);
-        if (!chunk) return false;
-        return chunk->IsChunkDirty();
+    void AddChunk(const std::shared_ptr<Chunk>& chunk) {
+        int64_t key = PackChunkKey(chunk->GetChunkX(), chunk->GetChunkY(), chunk->GetChunkZ());
+        chunks[key] = chunk;
     }
 
-    void MarkChunkAsDirty(int32_t cx, int32_t cy, int32_t cz) {
-        auto chunk = GetChunkAt(cx, cy, cz);
-        if (!chunk) return;
-        chunk->MarkAsDirty();
+    void RemoveChunk(int32_t cx, int32_t cy, int32_t cz) {
+        int64_t key = PackChunkKey(cx, cy, cz);
+        auto it = chunks.find(key);
+        if (it == chunks.end()) return;
+
+        if (it->second) {
+            it->second->SetState(ChunkState::Unloading);
+            it->second->UnloadChunk();
+        }
+
+        chunks.erase(it);
+        renderedChunks.erase(key);
+        dirtyQueued.erase(key);
     }
 
-    void UnmarkChunkAsDirty(int32_t cx, int32_t cy, int32_t cz) {
-        auto chunk = GetChunkAt(cx, cy, cz);
-        if (!chunk) return;
-        chunk->UnmarkAsDirty();
-    }
-
-    bool IsChunkLoaded(int32_t cx, int32_t cy, int32_t cz) const {
-        auto chunk = GetChunkAt(cx, cy, cz);
-        if (!chunk) return false;
-        return chunk->IsChunkLoaded();
-    }
-
-    void MarkChunkAsLoaded(int32_t cx, int32_t cy, int32_t cz) {
-        auto chunk = GetChunkAt(cx, cy, cz);
-        if (!chunk) return;
-        chunk->MarkAsLoaded();
-    }
-
-    void UnmarkChunkAsLoaded(int32_t cx, int32_t cy, int32_t cz) {
-        auto chunk = GetChunkAt(cx, cy, cz);
-        if (!chunk) return;
-        chunk->UnmarkAsLoaded();
-    }
-
-    bool IsModelEmpty(int32_t cx, int32_t cy, int32_t cz) const {
-        auto chunk = GetChunkAt(cx, cy, cz);
-        if (!chunk) return true;
-        return chunk->IsModelEmpty();
-    }
-
-    void UnloadChunk(int32_t cx, int32_t cy, int32_t cz) {
-        auto chunk = GetChunkAt(cx, cy, cz);
-        if (!chunk) return;
-        chunk->UnloadChunk();
-    }
-
-    void UpdateChunkModel(int32_t cx, int32_t cy, int32_t cz, Model& model) {
-        auto chunk = GetChunkAt(cx, cy, cz);
-        if (!chunk) return;
-        chunk->UpdateChunkModel(model);
-    }
-
-    void SetChunkMaterialTexture(int32_t cx, int32_t cy, int32_t cz, Texture2D& atlas) {
-        auto chunk = GetChunkAt(cx, cy, cz);
-        if (!chunk) return;
-        chunk->SetChunkMaterialTexture(atlas);
+    void ClearRendered() {
+        renderedChunks.clear();
     }
 
     void Rendered(int32_t cx, int32_t cy, int32_t cz) {
-        renderedChunks.push_back(ChunkKey(cx, cy, cz));
+        renderedChunks.insert(PackChunkKey(cx, cy, cz));
     }
 
     bool IsRendered(int32_t cx, int32_t cy, int32_t cz) const {
-        int64_t key = ChunkKey(cx, cy, cz);
-        return std::find(renderedChunks.begin(), renderedChunks.end(), key) != renderedChunks.end();
+        return renderedChunks.find(PackChunkKey(cx, cy, cz)) != renderedChunks.end();
     }
 
-    // world block coordinates -> id (missing chunk/block => air => 0)
+    bool IsChunkDirty(int32_t cx, int32_t cy, int32_t cz) const {
+        auto ch = GetChunkAt(cx, cy, cz);
+        return ch ? ch->IsChunkDirty() : false;
+    }
+
+    bool IsChunkLoaded(int32_t cx, int32_t cy, int32_t cz) const {
+        auto ch = GetChunkAt(cx, cy, cz);
+        return ch ? ch->IsChunkLoaded() : false;
+    }
+
+    void MarkChunkAsDirty(int32_t cx, int32_t cy, int32_t cz) {
+        auto ch = GetChunkAt(cx, cy, cz);
+        if (!ch) return;
+        ch->MarkAsDirty();
+
+        int64_t key = PackChunkKey(cx, cy, cz);
+        if (dirtyQueued.insert(key).second) {
+            dirtyQueue.push(key);
+        }
+    }
+
+    void MarkAllChunksDirty() {
+        for (auto &kv : chunks) {
+            auto &chunk = kv.second;
+            if (!chunk) continue;
+            if (!chunk->IsChunkDirty()) {
+                chunk->MarkAsDirty();
+            }
+            auto [cx, cy, cz] = UnpackChunkKey(kv.first);
+            if (dirtyQueued.insert(kv.first).second) {
+                dirtyQueue.push(kv.first);
+            }
+        }
+    }
+    
+    void ProcessDirtyQueue(int32_t dirtyBudget, const std::function<void(int32_t,int32_t,int32_t)>& fn) {
+        int32_t budget = dirtyBudget;
+
+        while (budget > 0 && !dirtyQueue.empty()) {
+            int64_t key = dirtyQueue.front();
+            dirtyQueue.pop();
+            dirtyQueued.erase(key);
+
+            auto [cx, cy, cz] = UnpackChunkKey(key);
+            fn(cx, cy, cz);
+            --budget;
+        }
+    }
+
+    void MarkNeighborChunksDirty(int32_t cx, int32_t cy, int32_t cz) {
+        const int dirs[6][3] = {
+            {-1, 0, 0}, {1, 0, 0},
+            {0, -1, 0}, {0, 1, 0},
+            {0, 0, -1}, {0, 0, 1}
+        };
+
+        for (auto& d : dirs) {
+            MarkChunkAsDirty(cx + d[0], cy + d[1], cz + d[2]);
+        }
+    }
+
+    void MarkChunkAsLoaded(int32_t cx, int32_t cy, int32_t cz) {
+        auto ch = GetChunkAt(cx, cy, cz);
+        if (!ch) return;
+        ch->MarkAsLoaded();
+    }
+
+    void UnmarkChunkAsLoaded(int32_t cx, int32_t cy, int32_t cz) {
+        auto ch = GetChunkAt(cx, cy, cz);
+        if (!ch) return;
+        ch->UnmarkAsLoaded();
+    }
+
+    void UnmarkChunkAsDirty(int32_t cx, int32_t cy, int32_t cz) {
+        auto ch = GetChunkAt(cx, cy, cz);
+        if (!ch) return;
+        ch->UnmarkAsDirty();
+    }
+
+    void UnloadChunk(int32_t cx, int32_t cy, int32_t cz) {
+        auto ch = GetChunkAt(cx, cy, cz);
+        if (!ch) return;
+        ch->UnloadChunk();
+    }
+
+    void UpdateChunkModel(int32_t cx, int32_t cy, int32_t cz, Model m) {
+        auto ch = GetChunkAt(cx, cy, cz);
+        if (!ch) return;
+        ch->UpdateChunkModel(m);
+    }
+
+    void SetChunkMaterialTexture(int32_t cx, int32_t cy, int32_t cz, Texture2D& atlas) {
+        auto ch = GetChunkAt(cx, cy, cz);
+        if (!ch) return;
+        ch->SetChunkMaterialTexture(atlas);
+    }
+
+    bool IsBlockTransparent(int worldX, int worldY, int worldZ) const {
+        return GetBlockId(worldX, worldY, worldZ) == 0;
+    }
+
+    size_t GetChunkCount() const { return chunks.size(); }
+
     int GetBlockId(int64_t worldX, int64_t worldY, int64_t worldZ) const {
         auto [cx, lx] = WorldToChunkAndLocal((int)worldX);
         auto [cy, ly] = WorldToChunkAndLocal((int)worldY);
@@ -105,12 +189,10 @@ public:
 
         auto chunk = GetChunkAt(cx, cy, cz);
         if (!chunk) return 0;
-        auto block = chunk->GetBlock(lx, ly, lz);
-        if (!block) return 0;
-        return block->GetId();
+        return chunk->GetBlock(lx, ly, lz);
     }
 
-    bool SetBlock(int64_t worldX, int64_t worldY, int64_t worldZ, int id, SetblockActions action = SetblockActions::SET) {
+    bool SetBlock(int64_t worldX, int64_t worldY, int64_t worldZ, uint16_t id, SetblockActions action = SetblockActions::SET) {
         auto [cx, lx] = WorldToChunkAndLocal((int)worldX);
         auto [cy, ly] = WorldToChunkAndLocal((int)worldY);
         auto [cz, lz] = WorldToChunkAndLocal((int)worldZ);
@@ -118,73 +200,29 @@ public:
         auto chunk = GetChunkAt(cx, cy, cz);
         if (!chunk) return false;
 
-        int current = 0;
-        auto block = chunk->GetBlock(lx, ly, lz);
-        if (block) current = block->GetId();
-
-        auto notifyNeighbors = [&](void) {
-            if (!chunkModifiedCb) return;
-            chunkModifiedCb(cx, cy, cz);
-            if (lx == 0) chunkModifiedCb(cx-1, cy, cz);
-            if (lx == CHUNK_SIZE-1) chunkModifiedCb(cx+1, cy, cz);
-            if (ly == 0) chunkModifiedCb(cx, cy-1, cz);
-            if (ly == CHUNK_SIZE-1) chunkModifiedCb(cx, cy+1, cz);
-            if (lz == 0) chunkModifiedCb(cx, cy, cz-1);
-            if (lz == CHUNK_SIZE-1) chunkModifiedCb(cx, cy, cz+1);
-        };
-
-        switch (action) {
-            case SetblockActions::SET:
+        if (action == SetblockActions::SET) {
+            chunk->SetBlockId(lx, ly, lz, id);
+        } else if (action == SetblockActions::REPLACE) {
+            if (chunk->GetBlock(lx, ly, lz) != 0) {
                 chunk->SetBlockId(lx, ly, lz, id);
-                notifyNeighbors();
-                return true;
-            case SetblockActions::REPLACE:
-                if (current != 0) {
-                    chunk->SetBlockId(lx, ly, lz, id);
-                    notifyNeighbors();
-                    return true;
-                }
-                return false;
-            case SetblockActions::KEEP:
-                if (current == 0) {
-                    chunk->SetBlockId(lx, ly, lz, id);
-                    notifyNeighbors();
-                    return true;
-                }
-                return false;
-            case SetblockActions::BREAK:
-                if (current != 0) {
-                    chunk->SetBlockId(lx, ly, lz, 0);
-                    notifyNeighbors();
-                    return true;
-                }
-                return false;
+            }
+        } else if (action == SetblockActions::KEEP) {
+            if (chunk->GetBlock(lx, ly, lz) == 0) {
+                chunk->SetBlockId(lx, ly, lz, id);
+            }
         }
-        return false;
-    }
 
-    size_t GetChunkCount() const { return chunks.size(); }
+        if (chunkModifiedCb) {
+            chunkModifiedCb(cx, cy, cz);
+            if (lx == 0) chunkModifiedCb(cx - 1, cy, cz);
+            if (lx == CHUNK_SIZE - 1) chunkModifiedCb(cx + 1, cy, cz);
+            if (ly == 0) chunkModifiedCb(cx, cy - 1, cz);
+            if (ly == CHUNK_SIZE - 1) chunkModifiedCb(cx, cy + 1, cz);
+            if (lz == 0) chunkModifiedCb(cx, cy, cz - 1);
+            if (lz == CHUNK_SIZE - 1) chunkModifiedCb(cx, cy, cz + 1);
+        }
 
-    std::shared_ptr<Chunk> GetChunk(size_t index) const {
-        if (index < chunkList.size()) return chunkList[index];
-        return nullptr;
-    }
-
-    std::shared_ptr<Chunk> GetChunkAt(int32_t cx, int32_t cy, int32_t cz) const {
-        int64_t key = ChunkKey(cx, cy, cz);
-        auto it = chunks.find(key);
-        if (it == chunks.end()) return nullptr;
-        return it->second;
-    }
-
-    bool IsBlockTransparent(int worldX, int worldY, int worldZ) const {
-        return GetBlockId(worldX, worldY, worldZ) == 0;
-    }
-
-    void AddChunk(std::shared_ptr<Chunk> chunk) {
-        int64_t key = ChunkKey(chunk->GetChunkX(), chunk->GetChunkY(), chunk->GetChunkZ());
-        chunks[key] = chunk;
-        chunkList.push_back(chunk);
+        return true;
     }
 
     static std::pair<int,int> WorldToChunkAndLocal(int w) {
@@ -196,8 +234,8 @@ public:
     int64_t FillBlocks(int64_t ax, int64_t ay, int64_t az,
                     int64_t bx, int64_t by, int64_t bz,
                     const BlockFillActions& blockaction,
-                    int id = 1,
-                    int64_t blockLimit = 50000)
+                    uint16_t id = 1,
+                    int32_t blockLimit = 50000)
     {
         int64_t x0 = std::min(ax, bx), x1 = std::max(ax, bx);
         int64_t y0 = std::min(ay, by), y1 = std::max(ay, by);
@@ -226,7 +264,7 @@ public:
 
                     if (!shouldProcess) continue;
 
-                    int current = GetBlockId(x, y, z);
+                    uint16_t current = GetBlockId(x, y, z);
 
                     switch (blockaction) {
                         case BlockFillActions::SET:
@@ -269,11 +307,24 @@ public:
     void SetSpawnPoint(Vector3& newSpawnpoint) { spawnpoint = newSpawnpoint; }
 
 private:
+    void ClearAllChunks() { 
+        for (auto &kv : chunks) {
+            if (kv.second) {
+                kv.second->SetState(ChunkState::Unloading);
+                kv.second->UnloadChunk();
+            }
+        }
+        chunks.clear();
+        renderedChunks.clear();
+        while (!dirtyQueue.empty()) dirtyQueue.pop();
+        dirtyQueued.clear();
+    }
+
     std::unordered_map<int64_t, std::shared_ptr<Chunk>> chunks;
-    std::vector<std::shared_ptr<Chunk>> chunkList; // optional list
+    std::unordered_set<int64_t> renderedChunks;
+    std::queue<int64_t> dirtyQueue;
+    std::unordered_set<int64_t> dirtyQueued;
     std::string name;
-    std::vector<int64_t> renderedChunks;
-    std::vector<int64_t> loadedChunks;
     Vector3 spawnpoint;
     ChunkModifiedCallback chunkModifiedCb;
 };

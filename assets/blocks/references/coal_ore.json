@@ -1,0 +1,13 @@
+{
+  "id": 3,
+  "displayName": "Coal Ore",
+  "resistance": 30,
+  "faces": {
+    "top": "coal_ore",
+    "bottom": "coal_ore",
+    "east": "coal_ore",
+    "west": "coal_ore",
+    "north": "coal_ore",
+    "south": "coal_ore"
+  }
+}

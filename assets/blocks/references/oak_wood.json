@@ -1,0 +1,15 @@
+{
+  "id": 9,
+  "displayName": "Oak Log",
+  "resistance": 30,
+  "type": "FULL",
+  "material": "WOOD",
+  "faces": {
+    "top": "oaklog",
+    "bottom": "oaklog",
+    "east": "oaklog",
+    "west": "oaklog",
+    "north": "oaklog",
+    "south": "oaklog"
+  }
+}

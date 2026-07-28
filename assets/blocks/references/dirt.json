@@ -1,7 +1,9 @@
 {
-  "id": 1,
+  "id": 2,
   "displayName": "Dirt",
   "resistance": 30,
+  "type": "FULL",
+  "material": "DIRT",
   "faces": {
     "top": "dirt",
     "bottom": "dirt",

@@ -1,7 +1,9 @@
 {
-  "id": 8,
+  "id": 10,
   "displayName": "Oak Planks",
   "resistance": 30,
+  "type": "FULL",
+  "material": "WOOD",
   "faces": {
     "top": "oakplanks",
     "bottom": "oakplanks",

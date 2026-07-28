@@ -4,15 +4,6 @@
 #include <cstdint>
 #include "raylib.h"
 
-enum class ChunkState : uint8_t {
-    Unloaded,
-    Generated,
-    Dirty,
-    Meshing,
-    Ready,
-    Unloading
-};
-
 class Chunk {
 public:
     using BlockId = uint16_t;

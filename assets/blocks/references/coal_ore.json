@@ -1,7 +1,9 @@
 {
-  "id": 3,
+  "id": 6,
   "displayName": "Coal Ore",
   "resistance": 30,
+  "type": "FULL",
+  "material": "STONE",
   "faces": {
     "top": "coal_ore",
     "bottom": "coal_ore",

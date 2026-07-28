@@ -44,9 +44,6 @@ void run(const Config& config) {
 
     Texture2D atlas = blocksDefaults.atlasTex;
 
-    std::cout << "blocks count=" << blocksDefaults.loaded.blocks.size() << "\n";
-    std::cout << "sortedIds count=" << blocksDefaults.sortedIds.size() << "\n";
-
     //////////////////////////////////////////////////////////////////////////
     /////////////////      WORLD CLASS INITIALIZATION        /////////////////
     //////////////////////////////////////////////////////////////////////////
@@ -78,19 +75,10 @@ void run(const Config& config) {
         currentWorld.MarkChunkAsDirty(cx, cy, cz);
     });
     
-    currentWorld.FillBlocks(8, 8, 8, -8, -8, -8, BlockFillActions::SET, 11);
-    currentWorld.SetBlock(0, 1, 0, 2);
-    currentWorld.SetBlock(1, 2, 0, 3);
-    currentWorld.SetBlock(2, 3, 0, 4);
-    currentWorld.SetBlock(3, 4, 0, 5);
-    currentWorld.SetBlock(4, 5, 0, 6);
-    currentWorld.SetBlock(5, 6, 0, 7);
-    currentWorld.SetBlock(6, 7, 0, 8);
-    currentWorld.SetBlock(7, 8, 0, 9);
-    currentWorld.SetBlock(0, 9, 1, 10);
-    currentWorld.SetBlock(0, 10, 1, 10);
-    currentWorld.SetBlock(7, 9, 2, 11);
-    currentWorld.FillBlocks(7, 8, 1, -7, 8, 1, BlockFillActions::SET, 10);
+    currentWorld.FillBlocks(16, -2, 16, -16, -16, -16, BlockFillActions::SET, 4);
+    currentWorld.FillBlocks(16, -1, 16, -16, -1, -16, BlockFillActions::SET, 2);
+    currentWorld.FillBlocks(16, 0, 16, -16, 0, -16, BlockFillActions::SET, 1);
+    currentWorld.FillBlocks(2, 0, 2, 2, 10, 14, BlockFillActions::SET, 9);
 
 
     //////////////////////////////////////////////////////////////////////////

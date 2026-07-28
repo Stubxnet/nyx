@@ -1,3 +1,5 @@
 {
-    "texture": "wip"
+    "texture": "wip",
+    "type": "FULL",
+    "material": "STONE"
 }

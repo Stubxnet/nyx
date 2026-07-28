@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <optional>
 #include <unordered_map>
+#include "../enum.hpp"
+#include "../lib/BlockData.hpp"
 
 constexpr int TILE_SIZE = 32;
 
@@ -33,18 +35,19 @@ struct BlockReference {
     uint16_t id = 0;
     std::string displayName;
     uint16_t resistance = 0;
+    BlockType type = BlockType::FULL;
+    BlockMaterial material = BlockMaterial::DIRT;
     std::array<FaceTexture, 6> faces;
+    std::optional<BlockExtra> extra;
 };
 
-// Do NOT move this struct into another header unless loadBlockReferences already uses it.
-// It must be visible here.
 struct LoadedBlockDefaults {
     std::unordered_map<uint16_t, BlockReference> blocks;
     std::optional<BlockReference> defaultBlock;
 };
 
 struct BlocksDefaults {
-    LoadedBlockDefaults loaded;     // <-- au lieu de unordered_map direct
+    LoadedBlockDefaults loaded;
     std::vector<uint16_t> sortedIds;
     size_t currentIndex = 0;
 

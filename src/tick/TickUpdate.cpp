@@ -12,7 +12,7 @@
 static BoundingBox CreateBlockHitbox(const BlockType &blocktype, int64_t x, int64_t y, int64_t z) {
     BoundingBox blockBox = {0};
     switch (blocktype) {
-        case FULL:
+        case BlockType::FULL:
             blockBox = {
                 {(float)x, (float)y, (float)z},
                 {(float)x + 1.0f, (float)y + 1.0f, (float)z + 1.0f}

@@ -1,5 +1,8 @@
 #pragma once
 
+// This file contains the different "enum" types used.
+
+//---------------------------Game menu--------------------------
 // stores the active game screen
 enum GameScreen { 
     MENU, 
@@ -23,6 +26,8 @@ enum class OptionsAction {
     BACK 
 };
 
+//-----------------------------World--------------------------------------
+///////// Blocks ///////////
 // types of blocks placing actions
 enum class SetblockActions {
     SET,
@@ -39,6 +44,35 @@ enum class BlockFillActions {
     OUTLINE
 };
 
+// block types
+enum class BlockType : uint8_t {
+    FULL,
+    STAIRS,
+    SLAB,
+    ORIENTED,
+    LEAVES
+};
+
+// represents the block material (used for rendering and for gameplay)
+enum BlockMaterial {
+    DIRT,
+    STONE,
+    WOOD,
+    VEGETAL
+};
+
+/////////// Chunks ////////////
+// tag for chunk loading
+enum class ChunkState : uint8_t {
+    Unloaded,
+    Generated,
+    Dirty,
+    Meshing,
+    Ready,
+    Unloading
+};
+
+//-----------------------------Entities/Player-------------------------------
 // different available gamemodes
 enum GameModes { 
     SURVIVAL,
@@ -65,15 +99,4 @@ enum MoveMode {
     CREATIVE_FLY,
     SWIMMING,
     STATIC
-};
-
-// block types (actually only full but we will add "STAIRS", "SLAB" etc)
-enum BlockType {
-    FULL
-};
-
-// tag for chunk loading
-enum class ChunkTag {
-    NONE,
-    ALWAYS_LOADED
 };

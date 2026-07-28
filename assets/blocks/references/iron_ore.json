@@ -1,7 +1,9 @@
 {
-  "id": 4,
+  "id": 7,
   "displayName": "Iron Ore",
   "resistance": 30,
+  "type": "FULL",
+  "material": "STONE",
   "faces": {
     "top": "iron_ore",
     "bottom": "iron_ore",

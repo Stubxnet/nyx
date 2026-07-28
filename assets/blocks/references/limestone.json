@@ -2,6 +2,8 @@
   "id": 5,
   "displayName": "Limestone",
   "resistance": 30,
+  "type": "FULL",
+  "material": "STONE",
   "faces": {
     "top": "limestone",
     "bottom": "limestone",

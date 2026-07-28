@@ -1,7 +1,9 @@
 {
-  "id": 2,
+  "id": 4,
   "displayName": "Stone",
   "resistance": 30,
+  "type": "FULL",
+  "material": "STONE",
   "faces": {
     "top": "stone",
     "bottom": "stone",

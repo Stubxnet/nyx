@@ -132,6 +132,7 @@ void run(const Config& config) {
     bool applyBlockPlacementRestrictions = true;
 
     MoveMode playerMovementMode = WALKING;
+    float reach = 5.0f;
     //-------------------------------------
     // Vars
 
@@ -238,6 +239,14 @@ void run(const Config& config) {
                     rotation.y -= mouseDelta.y * sensitivity.y; // pitch
 
                     //------------Basic rights management-----------
+                    if (currentGamemode == BUILDER) {
+                        applyBlockPlacementRestrictions = false;
+                        reach = 255.0f;
+                    } else {
+                        applyBlockPlacementRestrictions = true;
+                        reach = 5.0f;
+                    }
+
                     if (currentGamemode == SPECTATOR) {
                         breakingAllowed = false;
                         placingAllowed = false;
@@ -246,40 +255,52 @@ void run(const Config& config) {
                         placingAllowed = true;
                     }
                     //-------------Update dirty chunks-----------
-                    size_t dirtyBudget = MAX_DIRTY_CHUNKS_PER_FRAME;
+                    for (int ox = -renderDistance; ox <= renderDistance; ++ox) {
+                        for (int oy = -renderDistance; oy <= renderDistance; ++oy) {
+                            for (int oz = -renderDistance; oz <= renderDistance; ++oz) {
+                                int cx = camCx + ox;
+                                int cy = camCy + oy;
+                                int cz = camCz + oz;
 
-                    currentWorld.ProcessDirtyQueue(
-                        (int32_t)dirtyBudget,
-                        [&](int32_t cx, int32_t cy, int32_t cz) {
-
-                            auto chunk = currentWorld.GetChunkAt(cx, cy, cz);
-                            if (!chunk) return;
-                            if (!chunk->IsChunkDirty()) return;
-
-                            chunk->SetState(ChunkState::Meshing);
-
-                            if (chunk->IsChunkLoaded()) {
-                                chunk->UnloadChunk();
-                                chunk->UnmarkAsLoaded();
-                            }
-
-                            Model m = BuildModelForChunk(chunk, &currentWorld);
-
-                            if (m.meshCount > 0) {
-                                chunk->UpdateChunkModel(m);
-                                if (atlas.id) {
-                                    chunk->SetChunkMaterialTexture(atlas);
+                                if (!currentWorld.HasChunkAt(cx, cy, cz)) {
+                                    currentWorld.EnsureChunk(cx, cy, cz);
+                                    currentWorld.MarkChunkAsDirty(cx, cy, cz);
                                 }
-                                chunk->MarkAsLoaded();
-                                chunk->UnmarkAsDirty();
-                                chunk->SetState(ChunkState::Ready);
-                            } else {
-                                chunk->UpdateChunkModel(Model{0});
-                                chunk->UnmarkAsLoaded();
-                                chunk->SetState(ChunkState::Generated);
+
+                                auto chunk = currentWorld.GetChunkAt(cx, cy, cz);
+                                if (!chunk) continue;
+                                
+                                if (!chunk->IsChunkLoaded() || chunk->IsModelEmpty()) {
+                                    currentWorld.MarkChunkAsDirty(cx, cy, cz);
+                                }
                             }
                         }
-                    );
+                    }
+                    size_t dirtyBudget = MAX_DIRTY_CHUNKS_PER_FRAME;
+
+                    currentWorld.ProcessDirtyQueue((int32_t)dirtyBudget, [&](int32_t cx, int32_t cy, int32_t cz) {
+                        auto chunk = currentWorld.GetChunkAt(cx, cy, cz);
+                        if (!chunk || !chunk->IsChunkDirty()) return;
+
+                        chunk->SetState(ChunkState::Meshing);
+
+                        Model m = BuildModelForChunk(chunk, &currentWorld);
+
+                        if (m.meshCount > 0) {
+                            chunk->UpdateChunkModel(m);
+                            if (atlas.id) {
+                                chunk->SetChunkMaterialTexture(atlas);
+                            }
+                            chunk->MarkAsLoaded();
+                            chunk->UnmarkAsDirty();
+                            chunk->SetState(ChunkState::Ready);
+                        } else {
+                            chunk->UpdateChunkModel(Model{0});
+                            chunk->MarkAsLoaded();
+                            chunk->UnmarkAsDirty();
+                            chunk->SetState(ChunkState::Generated);
+                        }
+                    });
                     // ---------- Cursor management
 
                     if (!IsMouseEnabled) {
@@ -421,7 +442,7 @@ void run(const Config& config) {
                         );
                         currentRay.direction = Vector3Normalize(currentRay.direction);
 
-                        currentHit = UpdateRaycastingTick(currentRay, camera, queuedBreak, queuedPlace, worldPtr, handedBlockId, breakingAllowed, placingAllowed, applyBlockPlacementRestrictions, blockPlacingCooldown);
+                        currentHit = UpdateRaycastingTick(currentRay, camera, queuedBreak, queuedPlace, worldPtr, handedBlockId, breakingAllowed, placingAllowed, applyBlockPlacementRestrictions, blockPlacingCooldown, reach);
 
                         queuedBreak = false;
                         queuedPlace = false;
@@ -435,6 +456,7 @@ void run(const Config& config) {
                 ClearBackground(backgroundColor);
                 BeginMode3D(camera);
                 //--------------3D Drawing-----------------------
+                currentWorld.ClearRendered();
 
                 for (int ox = -renderDistance; ox <= renderDistance; ++ox) {
                     for (int oy = -renderDistance; oy <= renderDistance; ++oy) {
@@ -444,34 +466,19 @@ void run(const Config& config) {
                             int cz = camCz + oz;
 
                             auto chunk = currentWorld.GetChunkAt(cx, cy, cz);
-                            if (!chunk) {
-                                auto chunk = std::make_shared<Chunk>(cx, cy, cz);
-                                currentWorld.AddChunk(chunk);
-                                currentWorld.MarkChunkAsDirty(cx, cy, cz);
-                                continue;
-                            }
-
-                            if (!currentWorld.IsChunkLoaded(cx, cy, cz)) {
-                                currentWorld.MarkChunkAsDirty(cx, cy, cz);
-                                continue;
-                            }
-
-                            Model model = chunk->GetModel();
+                            if (!chunk) continue;
+                            if (!chunk->IsChunkLoaded()) continue;
                             if (chunk->IsModelEmpty()) continue;
 
                             float worldX = (float)(cx * CHUNK_SIZE);
                             float worldY = (float)(cy * CHUNK_SIZE);
                             float worldZ = (float)(cz * CHUNK_SIZE);
 
-                            // TODO: frustum culling
-
-                            DrawModel(model, (Vector3){ worldX, worldY, worldZ }, 1.0f, WHITE);
-
+                            DrawModel(chunk->GetModel(), (Vector3){ worldX, worldY, worldZ }, 1.0f, WHITE);
                             currentWorld.Rendered(cx, cy, cz);
                         }
                     }
                 }
-
                 if (drawBoundingBoxes && camera.projection == CAMERA_THIRD_PERSON) {   
                     BoundingBox playerBox = CreatePlayerHitbox(camera);
                     DrawBoundingBox(playerBox, LIME);

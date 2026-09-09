@@ -35,9 +35,7 @@ public:
 
     World(const std::string& name, Vector3 spawnpoint) : name(name), spawnpoint(spawnpoint) {}
 
-    ~World() {
-        ClearAllChunks();
-    }
+    ~World() { ClearAllChunks(); }
 
     void SetChunkModifiedCallback(ChunkModifiedCallback cb) { chunkModifiedCb = cb; }
 
@@ -47,9 +45,18 @@ public:
         return it->second;
     }
 
+    bool HasChunkAt(int32_t cx, int32_t cy, int32_t cz) const {
+        return chunks.find(PackChunkKey(cx, cy, cz)) != chunks.end();
+    }
+
     void AddChunk(const std::shared_ptr<Chunk>& chunk) {
         int64_t key = PackChunkKey(chunk->GetChunkX(), chunk->GetChunkY(), chunk->GetChunkZ());
         chunks[key] = chunk;
+    }
+
+    void EnsureChunk(int32_t cx, int32_t cy, int32_t cz) {
+        if (HasChunkAt(cx, cy, cz)) return;
+        AddChunk(std::make_shared<Chunk>(cx, cy, cz));
     }
 
     void RemoveChunk(int32_t cx, int32_t cy, int32_t cz) {
@@ -67,9 +74,7 @@ public:
         dirtyQueued.erase(key);
     }
 
-    void ClearRendered() {
-        renderedChunks.clear();
-    }
+    void ClearRendered() { renderedChunks.clear(); }
 
     void Rendered(int32_t cx, int32_t cy, int32_t cz) {
         renderedChunks.insert(PackChunkKey(cx, cy, cz));
@@ -92,7 +97,8 @@ public:
     void MarkChunkAsDirty(int32_t cx, int32_t cy, int32_t cz) {
         auto ch = GetChunkAt(cx, cy, cz);
         if (!ch) return;
-        ch->MarkAsDirty();
+
+        if (!ch->IsChunkDirty()) ch->MarkAsDirty();
 
         int64_t key = PackChunkKey(cx, cy, cz);
         if (dirtyQueued.insert(key).second) {
@@ -104,16 +110,13 @@ public:
         for (auto &kv : chunks) {
             auto &chunk = kv.second;
             if (!chunk) continue;
-            if (!chunk->IsChunkDirty()) {
-                chunk->MarkAsDirty();
-            }
-            auto [cx, cy, cz] = UnpackChunkKey(kv.first);
+            if (!chunk->IsChunkDirty()) chunk->MarkAsDirty();
             if (dirtyQueued.insert(kv.first).second) {
                 dirtyQueue.push(kv.first);
             }
         }
     }
-    
+
     void ProcessDirtyQueue(int32_t dirtyBudget, const std::function<void(int32_t,int32_t,int32_t)>& fn) {
         int32_t budget = dirtyBudget;
 
@@ -123,6 +126,9 @@ public:
             dirtyQueued.erase(key);
 
             auto [cx, cy, cz] = UnpackChunkKey(key);
+            auto ch = GetChunkAt(cx, cy, cz);
+            if (!ch || !ch->IsChunkDirty()) continue;
+
             fn(cx, cy, cz);
             --budget;
         }
@@ -200,17 +206,24 @@ public:
         auto chunk = GetChunkAt(cx, cy, cz);
         if (!chunk) return false;
 
+        bool changed = false;
+
         if (action == SetblockActions::SET) {
             chunk->SetBlockId(lx, ly, lz, id);
+            changed = true;
         } else if (action == SetblockActions::REPLACE) {
             if (chunk->GetBlock(lx, ly, lz) != 0) {
                 chunk->SetBlockId(lx, ly, lz, id);
+                changed = true;
             }
         } else if (action == SetblockActions::KEEP) {
             if (chunk->GetBlock(lx, ly, lz) == 0) {
                 chunk->SetBlockId(lx, ly, lz, id);
+                changed = true;
             }
         }
+
+        if (!changed) return false;
 
         if (chunkModifiedCb) {
             chunkModifiedCb(cx, cy, cz);
@@ -256,42 +269,36 @@ public:
 
         for (int64_t x = x0; x <= x1; ++x) {
             for (int64_t y = y0; y <= y1; ++y) {
+                for (int64_t z = x0; z <= x1; ++z) {} // no-op
+            }
+        }
+
+        for (int64_t x = x0; x <= x1; ++x) {
+            for (int64_t y = y0; y <= y1; ++y) {
                 for (int64_t z = z0; z <= z1; ++z) {
                     bool shouldProcess = true;
                     if (blockaction == BlockFillActions::OUTLINE) {
                         shouldProcess = isOutline(x,y,z);
                     }
-
                     if (!shouldProcess) continue;
 
                     uint16_t current = GetBlockId(x, y, z);
 
                     switch (blockaction) {
                         case BlockFillActions::SET:
-                            if (SetBlock(x, y, z, id, SetblockActions::SET))
-                                ++placed;
+                            if (SetBlock(x, y, z, id, SetblockActions::SET)) ++placed;
                             break;
                         case BlockFillActions::REPLACE:
-                            if (current != 0) {
-                                if (SetBlock(x, y, z, id, SetblockActions::SET))
-                                    ++placed;
-                            }
+                            if (current != 0 && SetBlock(x, y, z, id, SetblockActions::SET)) ++placed;
                             break;
                         case BlockFillActions::KEEP:
-                            if (current == 0) {
-                                if (SetBlock(x, y, z, id, SetblockActions::SET))
-                                    ++placed;
-                            }
+                            if (current == 0 && SetBlock(x, y, z, id, SetblockActions::SET)) ++placed;
                             break;
                         case BlockFillActions::BREAK:
-                            if (current != 0) {
-                                if (SetBlock(x, y, z, 0, SetblockActions::SET))
-                                    ++placed;
-                            }
+                            if (current != 0 && SetBlock(x, y, z, 0, SetblockActions::SET)) ++placed;
                             break;
                         case BlockFillActions::OUTLINE:
-                            if (SetBlock(x, y, z, id, SetblockActions::SET))
-                                ++placed;
+                            if (SetBlock(x, y, z, id, SetblockActions::SET)) ++placed;
                             break;
                     }
 
@@ -307,7 +314,7 @@ public:
     void SetSpawnPoint(Vector3& newSpawnpoint) { spawnpoint = newSpawnpoint; }
 
 private:
-    void ClearAllChunks() { 
+    void ClearAllChunks() {
         for (auto &kv : chunks) {
             if (kv.second) {
                 kv.second->SetState(ChunkState::Unloading);

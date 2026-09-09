@@ -43,4 +43,4 @@ const int TILE = 32;
 
 // Chunk updates parameters
 constexpr int CHUNK_SIZE = 16;
-constexpr size_t MAX_DIRTY_CHUNKS_PER_FRAME = 12;
+constexpr size_t MAX_DIRTY_CHUNKS_PER_FRAME = 18;

@@ -39,6 +39,7 @@ public:
         if (!IsValidLocalPosition(x, y, z)) return;
         blocks[x][y][z] = newId;
         dirty = true;
+        state = ChunkState::Dirty;
         if (newId != 0) empty = false;
     }
 
@@ -46,11 +47,27 @@ public:
     bool IsChunkDirty() const { return dirty; }
     bool IsChunkLoaded() const { return loaded; }
 
-    void MarkAsDirty() { dirty = true; state = ChunkState::Dirty; }
-    void UnmarkAsDirty() { dirty = false; }
+    void MarkAsDirty() {
+        dirty = true;
+        state = ChunkState::Dirty;
+    }
 
-    void MarkAsLoaded() { loaded = true; state = ChunkState::Ready; }
-    void UnmarkAsLoaded() { loaded = false; }
+    void UnmarkAsDirty() {
+        dirty = false;
+        if (loaded) state = ChunkState::Ready;
+        else state = ChunkState::Generated;
+    }
+
+    void MarkAsLoaded() {
+        loaded = true;
+        state = ChunkState::Ready;
+    }
+
+    void UnmarkAsLoaded() {
+        loaded = false;
+        if (dirty) state = ChunkState::Dirty;
+        else state = ChunkState::Generated;
+    }
 
     Model& GetModel() { return model; }
 

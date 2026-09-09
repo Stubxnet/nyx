@@ -54,10 +54,11 @@ RaycastHit UpdateRaycastingTick(
     bool breakingAllowed,
     bool placingAllowed,
     bool applyBlockPlacementRestrictions,
-    int blockPlacingCooldown
+    int blockPlacingCooldown,
+    float reach
 ) {
     if (blockPlacingCooldown > 0) blockPlacingCooldown--;
-    RaycastHit hit = DDA_RaycastWorld(ray, world, 200.0f);
+    RaycastHit hit = DDA_RaycastWorld(ray, world, reach);
     if (!world) return hit;
 
     if (hit.hit && queuedBreak && breakingAllowed)

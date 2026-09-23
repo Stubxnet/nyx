@@ -5,8 +5,11 @@
 #include "../lib/RaycastHit.hpp"
 #include "../lib/DDA_raycasting.cpp"
 #include "../lib/World.hpp"
-#include "../constants.hpp"
-#include "../enum.hpp"
+#include "../lib/Body.hpp"
+#include "../lib/RenderState.hpp"
+
+#include "../core/constants.hpp"
+#include "../core/enum.hpp"
  
 // Utilities
 static BoundingBox CreateBlockHitbox(const BlockType &blocktype, int64_t x, int64_t y, int64_t z) {
@@ -49,7 +52,7 @@ RaycastHit UpdateRaycastingTick(
     const Camera3D& camera,
     bool queuedBreak,
     bool queuedPlace,
-    const std::shared_ptr<World>& world,
+    World& world,
     int placingId,
     bool breakingAllowed,
     bool placingAllowed,
@@ -58,31 +61,28 @@ RaycastHit UpdateRaycastingTick(
     float reach
 ) {
     if (blockPlacingCooldown > 0) blockPlacingCooldown--;
-    RaycastHit hit = DDA_RaycastWorld(ray, world, reach);
-    if (!world) return hit;
 
-    if (hit.hit && queuedBreak && breakingAllowed)
-    {
-        world->SetBlock(hit.x, hit.y, hit.z, 0, SetblockActions::SET);
+    RaycastHit hit = DDA_RaycastWorld(ray, world, reach);
+
+    if (hit.hit && queuedBreak && breakingAllowed) {
+        world.SetBlock(hit.x, hit.y, hit.z, 0, SetblockActions::SET);
     }
 
-    if (hit.hit && queuedPlace && placingAllowed)
-    {
+    if (hit.hit && queuedPlace && placingAllowed) {
         int64_t px = hit.x + hit.normalX;
         int64_t py = hit.y + hit.normalY;
         int64_t pz = hit.z + hit.normalZ;
 
-        if (world->GetBlockId(px, py, pz) == 0 && blockPlacingCooldown == 0)
-        {
+        if (world.GetBlockId(px, py, pz) == 0 && blockPlacingCooldown == 0) {
             if (applyBlockPlacementRestrictions) {
                 BoundingBox blockBox = CreateBlockHitbox(BlockType::FULL, px, py, pz);
                 BoundingBox playerBox = CreatePlayerHitbox(camera);
                 if (!CheckCollisionBoxes(playerBox, blockBox)) {
-                    world->SetBlock(px, py, pz, placingId, SetblockActions::SET);
+                    world.SetBlock(px, py, pz, placingId, SetblockActions::SET);
                     blockPlacingCooldown = 10;
                 }
             } else {
-                world->SetBlock(px, py, pz, placingId, SetblockActions::SET);
+                world.SetBlock(px, py, pz, placingId, SetblockActions::SET);
                 blockPlacingCooldown = 10;
             }
         }
@@ -402,7 +402,7 @@ void UpdatePlayerMovementTick(
     const GamemodeType &currentGamemode,
     bool normalModeFlag,
     Vector3 &movement,
-    Vector3 &rotation, // rotation.x = yaw, rotation.y = pitch
+    Vector3 &rotation,   // rotation.x = yaw, rotation.y = pitch
     float &accumulator,
     float &tickAccumulator,
     float dt,
@@ -416,22 +416,32 @@ void UpdatePlayerMovementTick(
 
     if (IsMouseEnabled) {
         const float mouseSensitivity = 0.0025f;
-
-        rotation.x += mouseDelta.x * mouseSensitivity;   // yaw
-        rotation.y -= mouseDelta.y * mouseSensitivity;   // pitch (invert only if your input feels reversed)
-
-        rotation.y = ClampFloat(rotation.y, -1.5533f, 1.5533f); // ~ +/- 89°
+        rotation.x += mouseDelta.x * mouseSensitivity;
+        rotation.y -= mouseDelta.y * mouseSensitivity;
+        rotation.y = ClampFloat(rotation.y, -1.5533f, 1.5533f);
     }
 
-    const bool isFlyMode = (currentGamemode == SPECTATOR) ||
-                           (currentGamemode == BUILDER) ||
-                           (normalModeFlag && currentGamemode == CREATIVE);
+    const bool isFlyMode =
+        (currentGamemode == SPECTATOR) ||
+        (currentGamemode == BUILDER) ||
+        (normalModeFlag && currentGamemode == CREATIVE);
 
     if (isFlyMode) {
         UpdateMovementFly(camera, movement, mouseDelta, rotation, zoom, dt, IsMovementsEnabled);
+
         renderState.previousCameraPosition = renderState.currentCameraPosition;
         renderState.currentCameraPosition = camera.position;
-        body.position = camera.position - Vector3{0, EYES_Y, 0};
+
+        body.position = camera.position - Vector3{0.0f, EYES_Y, 0.0f};
+
+        Vector3 forward = {
+            cosf(rotation.y) * sinf(rotation.x),
+            sinf(rotation.y),
+            cosf(rotation.y) * cosf(rotation.x)
+        };
+        camera.target = Vector3Add(camera.position, forward);
+        camera.up = {0.0f, 1.0f, 0.0f};
+
         return;
     }
 
@@ -443,20 +453,20 @@ void UpdatePlayerMovementTick(
         if (IsKeyDown(KEY_A)) inputDir.x -= 1.0f;
     }
 
-    if ((inputDir.x != 0.0f) && (inputDir.y != 0.0f)) {
+    if (inputDir.x != 0.0f && inputDir.y != 0.0f) {
         inputDir = Vector2Scale(inputDir, 1.0f / sqrtf(2.0f));
     }
 
     bool isSprinting = IsKeyDown(KEY_LEFT_SHIFT) && (inputDir.y > 0.0f);
-    bool isSneaking = IsKeyDown(KEY_LEFT_CONTROL);
-
+    bool isSneaking  = IsKeyDown(KEY_LEFT_CONTROL);
     bool jumpPressedFrame = IsKeyDown(KEY_SPACE);
 
     while (accumulator >= TICK_DT) {
+        renderState.previousCameraPosition = renderState.currentCameraPosition;
+
         bool jumpConsumed = jumpPressedFrame;
         jumpPressedFrame = false;
 
-        // Movement depends only on yaw, never on pitch
         float sinYaw = sinf(rotation.x);
         float cosYaw = cosf(rotation.x);
 
@@ -468,9 +478,11 @@ void UpdatePlayerMovementTick(
 
         UpdateBodyTick(body, direction, jumpConsumed, isSprinting, isSneaking);
 
+        float eyeHeight = isSneaking ? SNEAK_EYES_Y : EYES_Y;
+
         Vector3 intendedEyePos = Vector3Add(
             body.position,
-            (Vector3){0.0f, (isSneaking ? SNEAK_EYES_Y : EYES_Y), 0.0f}
+            Vector3{0.0f, eyeHeight, 0.0f}
         );
 
         Vector3 prevEyePos = renderState.previousCameraPosition;
@@ -481,22 +493,21 @@ void UpdatePlayerMovementTick(
 
         ResolveCollisions(deltaMovement, tempCam, world, body, currentGamemode, SPECTATOR);
 
+        camera.position = tempCam.position;
+
         if (deltaMovement.y == 0.0f && body.velocity.y < 0.0f) {
             body.velocity.y = 0.0f;
             body.OnGround = true;
-
-            float eyeHeight = (isSneaking ? SNEAK_EYES_Y : EYES_Y);
-            body.position.y = tempCam.position.y - eyeHeight;
+            body.position.y = camera.position.y - eyeHeight;
         }
 
-        camera.position = tempCam.position;
-
-        float eyeHeight = (isSneaking ? SNEAK_EYES_Y : EYES_Y);
         body.position.x = camera.position.x;
         body.position.z = camera.position.z;
         if (!body.OnGround) {
             body.position.y = camera.position.y - eyeHeight;
         }
+
+        renderState.currentCameraPosition = camera.position;
 
         accumulator -= TICK_DT;
         tickAccumulator = 0.0f;
@@ -505,15 +516,16 @@ void UpdatePlayerMovementTick(
     tickAccumulator += dt;
     float lerpFactor = ClampFloat(tickAccumulator / TICK_DT, 0.0f, 1.0f);
 
+    float eyeHeight = IsKeyDown(KEY_LEFT_CONTROL) ? SNEAK_EYES_Y : EYES_Y;
+
     Vector3 interpolatedPos = Vector3Lerp(
         renderState.previousCameraPosition,
-        Vector3Add(body.position, (Vector3){0.0f, (IsKeyDown(KEY_LEFT_CONTROL) ? SNEAK_EYES_Y : EYES_Y), 0.0f}),
+        Vector3Add(body.position, Vector3{0.0f, eyeHeight, 0.0f}),
         lerpFactor
     );
 
     camera.position = interpolatedPos;
 
-    // Standard FPS camera direction
     Vector3 forward = {
         cosf(rotation.y) * sinf(rotation.x),
         sinf(rotation.y),
@@ -522,6 +534,4 @@ void UpdatePlayerMovementTick(
 
     camera.target = Vector3Add(camera.position, forward);
     camera.up = {0.0f, 1.0f, 0.0f};
-
-    renderState.currentCameraPosition = camera.position;
 }

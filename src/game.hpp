@@ -9,21 +9,15 @@
 #include "utils/colors.cpp"
 #include "utils/IO_Utils.cpp"
 
-#include "lib/GameRules.hpp"
-#include "lib/Entity.hpp"
-#include "lib/Entities.hpp"
 #include "lib/Block.hpp"
 #include "lib/Chunk.hpp"
 #include "lib/World.hpp"
 #include "lib/Config.hpp"
 #include "lib/BlockDefaults.hpp"
 
-#include "render/renderutils.cpp"
 #include "render/Mesher.cpp"
 
 #include "tick/TickUpdate.cpp"
-
-#include "textures/atlas.cpp"
 
 #include "ui/Interface.cpp"
 #include "ui/drawingUtils.hpp"
@@ -32,9 +26,12 @@
 #include "data/AtlasGenerator.cpp"
 #include "data/BlocksDefaults.cpp"
 
-#include "constants.hpp"
-#include "enum.hpp"
-
-int chunk_size = 16;
+#include "core/constants.hpp"
+#include "core/enum.hpp"
+#include "core/gamestate.hpp"
+#include "core/gameinit.cpp"
+#include "core/gameupdate.cpp"
+#include "core/gamerender.cpp"
+#include "core/gamecleanup.cpp"
 
 #endif // GAME_HPP

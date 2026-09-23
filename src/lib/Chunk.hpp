@@ -1,5 +1,6 @@
 #pragma once
-#include "../constants.hpp"
+#include "../core/constants.hpp"
+#include "../core/enum.hpp"
 #include <array>
 #include <cstdint>
 #include "raylib.h"
@@ -37,6 +38,7 @@ public:
 
     void SetBlockId(int x, int y, int z, BlockId newId) {
         if (!IsValidLocalPosition(x, y, z)) return;
+        if (blocks[x][y][z] == newId) return;
         blocks[x][y][z] = newId;
         dirty = true;
         state = ChunkState::Dirty;

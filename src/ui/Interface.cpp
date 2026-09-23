@@ -1,6 +1,6 @@
 #include "raylib.h"
 #include "drawingUtils.hpp"
-#include "../enum.hpp"
+#include "../core/enum.hpp"
 
 #include <iostream>
 

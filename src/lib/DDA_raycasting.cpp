@@ -12,10 +12,9 @@ static inline int Signf(float v)
     return (v > 0.0f) - (v < 0.0f);
 }
 
-RaycastHit DDA_RaycastWorld(const Ray& ray, const std::shared_ptr<World>& world, float maxDist)
+RaycastHit DDA_RaycastWorld(const Ray& ray, const World& world, float maxDist)
 {
     RaycastHit out;
-    if (!world) return out;
 
     Vector3 origin = ray.position;
     Vector3 dir = Vector3Normalize(ray.direction);
@@ -43,9 +42,8 @@ RaycastHit DDA_RaycastWorld(const Ray& ray, const std::shared_ptr<World>& world,
     int lastAxis = -1;
     float t = 0.0f;
 
-    int id0 = world->GetBlockId(x, y, z);
-    if (id0 != 0)
-    {
+    int id0 = world.GetBlockId(x, y, z);
+    if (id0 != 0) {
         out.hit = true;
         out.x = x; out.y = y; out.z = z;
         out.id = id0;
@@ -53,36 +51,26 @@ RaycastHit DDA_RaycastWorld(const Ray& ray, const std::shared_ptr<World>& world,
         return out;
     }
 
-    while (t <= maxDist)
-    {
-        if (tMaxX < tMaxY)
-        {
-            if (tMaxX < tMaxZ)
-            {
+    while (t <= maxDist) {
+        if (tMaxX < tMaxY) {
+            if (tMaxX < tMaxZ) {
                 x += stepX;
                 t = tMaxX;
                 tMaxX += tDeltaX;
                 lastAxis = 0;
-            }
-            else
-            {
+            } else {
                 z += stepZ;
                 t = tMaxZ;
                 tMaxZ += tDeltaZ;
                 lastAxis = 2;
             }
-        }
-        else
-        {
-            if (tMaxY < tMaxZ)
-            {
+        } else {
+            if (tMaxY < tMaxZ) {
                 y += stepY;
                 t = tMaxY;
                 tMaxY += tDeltaY;
                 lastAxis = 1;
-            }
-            else
-            {
+            } else {
                 z += stepZ;
                 t = tMaxZ;
                 tMaxZ += tDeltaZ;
@@ -90,9 +78,8 @@ RaycastHit DDA_RaycastWorld(const Ray& ray, const std::shared_ptr<World>& world,
             }
         }
 
-        int id = world->GetBlockId(x, y, z);
-        if (id != 0)
-        {
+        int id = world.GetBlockId(x, y, z);
+        if (id != 0) {
             out.hit = true;
             out.x = x; out.y = y; out.z = z;
             out.id = id;

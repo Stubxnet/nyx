@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <optional>
 #include <unordered_map>
-#include "../enum.hpp"
+#include "../core/enum.hpp"
 #include "../lib/BlockData.hpp"
 
 constexpr int TILE_SIZE = 32;

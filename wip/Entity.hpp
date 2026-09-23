@@ -1,6 +1,6 @@
 #pragma once
-#include "../constants.hpp"
-#include "../enum.hpp"
+#include "../core/constants.hpp"
+#include "../core/enum.hpp"
 #include "raylib.h"
 
 class Entity {

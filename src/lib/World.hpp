@@ -9,6 +9,7 @@
 #include <functional>
 #include <tuple>
 #include <iostream>
+#include "../core/enum.hpp"
 #include "Chunk.hpp"
 
 static inline int64_t PackChunkKey(int32_t x, int32_t y, int32_t z) {
@@ -31,13 +32,9 @@ static inline std::tuple<int32_t,int32_t,int32_t> UnpackChunkKey(int64_t key) {
 
 class World {
 public:
-    using ChunkModifiedCallback = std::function<void(int32_t, int32_t, int32_t)>;
-
     World(const std::string& name, Vector3 spawnpoint) : name(name), spawnpoint(spawnpoint) {}
 
     ~World() { ClearAllChunks(); }
-
-    void SetChunkModifiedCallback(ChunkModifiedCallback cb) { chunkModifiedCb = cb; }
 
     std::shared_ptr<Chunk> GetChunkAt(int32_t cx, int32_t cy, int32_t cz) const {
         auto it = chunks.find(PackChunkKey(cx, cy, cz));
@@ -225,15 +222,13 @@ public:
 
         if (!changed) return false;
 
-        if (chunkModifiedCb) {
-            chunkModifiedCb(cx, cy, cz);
-            if (lx == 0) chunkModifiedCb(cx - 1, cy, cz);
-            if (lx == CHUNK_SIZE - 1) chunkModifiedCb(cx + 1, cy, cz);
-            if (ly == 0) chunkModifiedCb(cx, cy - 1, cz);
-            if (ly == CHUNK_SIZE - 1) chunkModifiedCb(cx, cy + 1, cz);
-            if (lz == 0) chunkModifiedCb(cx, cy, cz - 1);
-            if (lz == CHUNK_SIZE - 1) chunkModifiedCb(cx, cy, cz + 1);
-        }
+        MarkChunkAsDirty(cx, cy, cz);
+        if (lx == 0) MarkChunkAsDirty(cx - 1, cy, cz);
+        if (lx == CHUNK_SIZE - 1) MarkChunkAsDirty(cx + 1, cy, cz);
+        if (ly == 0) MarkChunkAsDirty(cx, cy - 1, cz);
+        if (ly == CHUNK_SIZE - 1) MarkChunkAsDirty(cx, cy + 1, cz);
+        if (lz == 0) MarkChunkAsDirty(cx, cy, cz - 1);
+        if (lz == CHUNK_SIZE - 1) MarkChunkAsDirty(cx, cy, cz + 1);
 
         return true;
     }
@@ -266,12 +261,6 @@ public:
         auto isOutline = [&](int64_t x, int64_t y, int64_t z)->bool{
             return (x == x0 || x == x1) || (y == y0 || y == y1) || (z == z0 || z == z1);
         };
-
-        for (int64_t x = x0; x <= x1; ++x) {
-            for (int64_t y = y0; y <= y1; ++y) {
-                for (int64_t z = x0; z <= x1; ++z) {} // no-op
-            }
-        }
 
         for (int64_t x = x0; x <= x1; ++x) {
             for (int64_t y = y0; y <= y1; ++y) {
@@ -311,7 +300,7 @@ public:
     }
 
     Vector3 GetSpawnPoint(void) const { return spawnpoint; }
-    void SetSpawnPoint(Vector3& newSpawnpoint) { spawnpoint = newSpawnpoint; }
+    void SetSpawnPoint(const Vector3& newSpawnpoint) { spawnpoint = newSpawnpoint; }
 
 private:
     void ClearAllChunks() {
@@ -333,5 +322,4 @@ private:
     std::unordered_set<int64_t> dirtyQueued;
     std::string name;
     Vector3 spawnpoint;
-    ChunkModifiedCallback chunkModifiedCb;
 };

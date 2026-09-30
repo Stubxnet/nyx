@@ -66,3 +66,18 @@ constexpr float DEFAULT_MOVEMENT_Z = 0.0f;
 constexpr float DEFAULT_ZOOM = 0.0f;
 constexpr float DEFAULT_ACCUMULATOR_PLAYER = 0.0f;
 constexpr double DEFAULT_ACCUMULATOR = 0.0;
+
+constexpr float WORLD_SCALE = 16.0f;
+
+constexpr int32_t MIN_WORLD_Y = -64;
+
+constexpr int32_t MIN_SURFACE_Y = -8;
+constexpr int32_t MAX_SURFACE_Y = 128;
+
+constexpr int32_t SEA_LEVEL = 0;
+
+constexpr int32_t MAX_OCEAN_DEPTH = 32;
+
+constexpr float BIOME_SIZE = 4096.0f;
+
+constexpr int32_t DEFAULT_SEED = 1337;

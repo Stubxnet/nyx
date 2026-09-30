@@ -11,13 +11,17 @@
 
 #include "lib/Block.hpp"
 #include "lib/Chunk.hpp"
+#include "lib/VerticalChunk.hpp"
 #include "lib/World.hpp"
 #include "lib/Config.hpp"
 #include "lib/BlockDefaults.hpp"
+#include "lib/Biome.hpp"
 
 #include "render/Mesher.cpp"
 
 #include "tick/TickUpdate.cpp"
+
+#include "generators/ProceduralGeneration.cpp"
 
 #include "ui/Interface.cpp"
 #include "ui/drawingUtils.hpp"

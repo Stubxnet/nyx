@@ -39,26 +39,35 @@ static void loadResources(GameState& gs, const Config& config) {
     SetBlockDefaults(&gs.resources.blocksDefaults);
 }
 
-static void initWorld(GameState& gs) {
+static void initWorld(GameState& gs, int32_t seed) {
     gs.world = WorldState("Default World", {0.0f, 9.5f, 2.0f});
-
     auto& world = gs.world.world;
+    gs.world.seed = seed;
 
     int range = gs.renderDistance;
+
+    for (int cx = -range; cx <= range; ++cx) {
+        for (int cz = -range; cz <= range; ++cz) {
+            auto verticalChunk = GenerateChunkHeightmap(cx, cz, gs.world.seed);
+            world.AddVerticalChunk(verticalChunk);
+        }
+    }
+
     for (int cx = -range; cx <= range; ++cx) {
         for (int cy = -range; cy <= range; ++cy) {
             for (int cz = -range; cz <= range; ++cz) {
-                world.AddChunk(std::make_shared<Chunk>(cx, cy, cz));
+                if (world.HasVerticalChunkAt(cx, cz)) {
+                    auto verticalChunk = world.GetVerticalChunkAt(cx, cz);
+                    auto chunk = GenerateChunkBlocks(*verticalChunk, cy);
+                    world.AddChunk(chunk);
+                } else {
+                    world.AddChunk(std::make_shared<Chunk>(cx, cy, cz));
+                }
             }
         }
     }
 
     world.MarkAllChunksDirty();
-
-    world.FillBlocks(16, -2, 16, -16, -16, -16, BlockFillActions::SET, 4);
-    world.FillBlocks(16, -1, 16, -16, -1, -16, BlockFillActions::SET, 2);
-    world.FillBlocks(16, 0, 16, -16, 0, -16, BlockFillActions::SET, 1);
-    world.FillBlocks(2, 0, 2, 2, 10, 14, BlockFillActions::SET, 9);
 }
 
 static void initCamera(GameState& gs) {
@@ -85,7 +94,7 @@ std::unique_ptr<GameState> initGame(const Config& config) {
 
     initWindowAndRender(*gs, config);
     loadResources(*gs, config);
-    initWorld(*gs);
+    initWorld(*gs, config.seed);
     initCamera(*gs);
 
     gs->input.lastTime = GetTime();

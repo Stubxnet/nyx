@@ -58,7 +58,7 @@ static void handleChat(GameState& gs) {
             std::string input = gs.hud.chatContent.substr(1);
 
             CommandContext ctx{
-                &gs.camera.camera,
+                &gs.camera,
                 &gs.world.world,
                 &gs.renderDistance,
                 &gs.currentGamemode,

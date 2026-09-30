@@ -57,39 +57,58 @@ static void drawF3(GameState& gs) {
 
     gs.hud.fps = GetFPS();
     if (gs.hud.fps < 10) gs.hud.fpsColor = RED;
-    else if (gs.hud.fps < 30) gs.hud.fpsColor = ORANGE;
+    if (gs.hud.fps > 10 && gs.hud.fps < 30) gs.hud.fpsColor = ORANGE;
     else gs.hud.fpsColor = GREEN;
 
-    DrawText(TextFormat("FPS: %i (Target: %i)", GetFPS(), gs.targetFPS), 15, gs.hud.textSpacing, gs.hud.textSize, gs.hud.fpsColor);
-    DrawText("Nyx build pre-release 1.0.0", 15, gs.hud.textSpacing + gs.hud.lineSize, gs.hud.textSize, gs.hud.f3color);
-    DrawText("Camera controls:", 15, gs.hud.textSpacing + gs.hud.lineSize*2, gs.hud.textSize, gs.hud.f3color);
-    DrawText("W, A, S, D, Space, Shift to move", 15, gs.hud.textSpacing + gs.hud.lineSize*3, gs.hud.textSize, gs.hud.f3color);
-    DrawText("Arrow keys or mouse to look around", 15, gs.hud.textSpacing + gs.hud.lineSize*4, gs.hud.textSize, gs.hud.f3color);
-    DrawText("T to open chat", 15, gs.hud.textSpacing + gs.hud.lineSize*5, gs.hud.textSize, gs.hud.f3color);
-    DrawText("Zoom keys: num-plus, num-minus or mouse scroll", 15, gs.hud.textSpacing + gs.hud.lineSize*6, gs.hud.textSize, gs.hud.f3color);
+    const int line = gs.hud.textSpacing;
+    const int lineSize = gs.hud.lineSize;
+    const int textSize = gs.hud.textSize;
+    int yPos = line + lineSize;
 
-    DrawText("Current camera status:", 15, gs.hud.textSpacing + gs.hud.lineSize*7, gs.hud.textSize, gs.hud.f3color);
-    DrawText(TextFormat("Camera mode: %s", (gs.camera.cameraMode == CAMERA_FREE) ? "FREE" :
-        (gs.camera.cameraMode == CAMERA_FIRST_PERSON) ? "FIRST_PERSON" :
-        (gs.camera.cameraMode == CAMERA_THIRD_PERSON) ? "THIRD_PERSON" :
-        (gs.camera.cameraMode == CAMERA_ORBITAL) ? "ORBITAL" : "CUSTOM"), 15, gs.hud.textSpacing + gs.hud.lineSize*8, gs.hud.textSize, gs.hud.f3color);
-    DrawText(TextFormat("Projection: %s", (gs.camera.camera.projection == CAMERA_PERSPECTIVE) ? "PERSPECTIVE" :
-        (gs.camera.camera.projection == CAMERA_ORTHOGRAPHIC) ? "ORTHOGRAPHIC" : "CUSTOM"), 15, gs.hud.textSpacing + gs.hud.lineSize*9, gs.hud.textSize, gs.hud.f3color);
-    DrawText(TextFormat("Position: (%06.3f, %06.3f, %06.3f)",
-        gs.camera.camera.position.x, gs.camera.camera.position.y, gs.camera.camera.position.z), 15, gs.hud.textSpacing + gs.hud.lineSize*10, gs.hud.textSize, gs.hud.f3color);
-    DrawText(TextFormat("Target: (%06.3f, %06.3f, %06.3f)",
-        gs.camera.camera.target.x, gs.camera.camera.target.y, gs.camera.camera.target.z), 15, gs.hud.textSpacing + gs.hud.lineSize*11, gs.hud.textSize, gs.hud.f3color);
-    DrawText(TextFormat("Up: (%06.3f, %06.3f, %06.3f)",
-        gs.camera.camera.up.x, gs.camera.camera.up.y, gs.camera.camera.up.z), 15, gs.hud.textSpacing + gs.hud.lineSize*12, gs.hud.textSize, gs.hud.f3color);
-    DrawText(TextFormat("Chunks on world: %d", (int)gs.world.world.GetChunkCount()), 15, gs.hud.textSpacing + gs.hud.lineSize*13, gs.hud.textSize, gs.hud.f3color);
-    DrawText(TextFormat("Blocks on world (including air): %d", (int)gs.world.world.GetChunkCount()*16), 15, gs.hud.textSpacing + gs.hud.lineSize*14, gs.hud.textSize, gs.hud.f3color);
-    DrawText(TextFormat("Render distance: %d", gs.renderDistance), 15, gs.hud.textSpacing + gs.hud.lineSize*15, gs.hud.textSize, gs.hud.f3color);
-    DrawText(TextFormat("Gamemode: %s",
-        (gs.currentGamemode == SURVIVAL) ? "SURVIVAL" :
-        (gs.currentGamemode == CREATIVE) ? "CREATIVE" :
-        (gs.currentGamemode == SPECTATOR) ? "SPECTATOR" :
-        (gs.currentGamemode == BUILDER) ? "BUILDER" : "UNKNOWN"
-    ), 15, gs.hud.textSpacing + gs.hud.lineSize*16, gs.hud.textSize, gs.hud.f3color);
+    Color defaultColor = gs.hud.f3color;
+    auto drawLine = [&](const char* text) {
+        DrawText(text, 15, yPos, textSize, defaultColor);
+        yPos += lineSize;
+    };
+
+    DrawText(TextFormat("FPS: %i (Target: %i)", GetFPS(), gs.targetFPS), 15, gs.hud.textSpacing, gs.hud.textSize, gs.hud.fpsColor);
+    drawLine("Nyx build pre-release 1.0.0");
+
+    drawLine("Camera controls:");
+    drawLine("W, A, S, D, Space, Shift to move");
+    drawLine("Arrow keys or mouse to look around");
+    drawLine("T to open chat");
+    drawLine("Zoom keys: num-plus, num-minus or mouse scroll");
+
+    drawLine("Current camera status:");
+
+    const char* cameraModes[] = {"FREE", "FIRST_PERSON", "THIRD_PERSON", "ORBITAL", "CUSTOM"};
+    drawLine(TextFormat("Camera mode: %s", cameraModes[std::min(gs.camera.cameraMode, 4)]));
+
+    const char* projections[] = {"PERSPECTIVE", "ORTHOGRAPHIC", "CUSTOM"};
+    drawLine(TextFormat("Projection: %s", projections[std::min(gs.camera.camera.projection, 2)]));
+
+    drawLine(TextFormat("Position: (%06.3f, %06.3f, %06.3f)",
+           gs.camera.camera.position.x,
+           gs.camera.camera.position.y,
+           gs.camera.camera.position.z));
+
+    drawLine(TextFormat("Target: (%06.3f, %06.3f, %06.3f)",
+           gs.camera.camera.target.x,
+           gs.camera.camera.target.y,
+           gs.camera.camera.target.z));
+
+    drawLine(TextFormat("Up: (%06.3f, %06.3f, %06.3f)",
+           gs.camera.camera.up.x,
+           gs.camera.camera.up.y,
+           gs.camera.camera.up.z));
+
+    drawLine(TextFormat("Chunks on world: %d", (int)gs.world.world.GetChunkCount()));
+    drawLine(TextFormat("World seed: %d", (int32_t)gs.world.seed));
+    drawLine(TextFormat("Render distance: %d", gs.renderDistance));
+
+    const char* gamemodes[] = {"SURVIVAL", "CREATIVE", "SPECTATOR", "BUILDER", "UNKNOWN"};
+    drawLine(TextFormat("Gamemode: %s", gamemodes[std::min((int)gs.currentGamemode, 4)]));
 }
 
 static void drawChat(GameState& gs) {

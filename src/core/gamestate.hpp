@@ -3,6 +3,7 @@
 #include "raylib.h"
 #include <memory>
 #include <string>
+#include <cstdint>
 
 #include "enum.hpp"
 
@@ -30,6 +31,7 @@ struct ResourceState {
 
 struct WorldState {
     World world;
+    int32_t seed = { DEFAULT_SEED };
 
     WorldState()
         : world("", {0.0f, 0.0f, 0.0f}) {}

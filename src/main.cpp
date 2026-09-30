@@ -5,6 +5,7 @@
 #include <iostream>
 #include <filesystem>
 #include <string>
+#include <cstdint>
 #include "utils/utils.cpp"
 #include "game.cpp"
 #include "lib/Config.hpp"
@@ -20,7 +21,8 @@ static bool parseCommandLine(int argc, char* argv[],
                              bool &enableVsync,
                              bool &enableMSAA4x,
                              int &overrideTargetFPS,
-                             int &overrideRaylibLogLevel) {
+                             int &overrideRaylibLogLevel,
+                             int32_t &seed) {
     showHelp = false;
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -37,6 +39,13 @@ static bool parseCommandLine(int argc, char* argv[],
                 }
             } catch (...) {
                 std::cerr << "Invalid value for --render-distance\n";
+                return false;
+            }
+        } else if ((a == "--seed" || a == "-s") && i + 1 < argc) {
+            try {
+                config.seed = std::stoi(argv[++i]);
+            } catch (...) {
+                std::cerr << "Invalid value for --seed\n";
                 return false;
             }
         } else if ((a == "--config-path" || a == "-c") && i + 1 < argc) {
@@ -113,8 +122,9 @@ int main(int argc, char *argv[]) {
     bool enableMSAA4x = false;
     int overrideTargetFPS = -1;
     int overrideRaylibLogLevel = LOG_INFO;
+    int32_t seed = 1337;
 
-    if (!parseCommandLine(argc, argv, config, disableConfigFile, disableConfigFileAutoInit, configPathOverride, showHelp, enableVsync, enableMSAA4x, overrideTargetFPS, overrideRaylibLogLevel)) {
+    if (!parseCommandLine(argc, argv, config, disableConfigFile, disableConfigFileAutoInit, configPathOverride, showHelp, enableVsync, enableMSAA4x, overrideTargetFPS, overrideRaylibLogLevel, seed)) {
         printUsage(argv[0]);
         return 2;
     }
@@ -147,6 +157,7 @@ int main(int argc, char *argv[]) {
         config.windowTitle = "Nyx";
         config.gamma = 2.2f;
         config.atlasRegeneration = false;
+        config.seed = 1337;
         if (config.username.empty()) config.username = "DefaultUser";
         if (config.renderDistance <= 0) config.renderDistance = 12;
     }
@@ -156,7 +167,7 @@ int main(int argc, char *argv[]) {
     std::string dummyPath;
     bool dummyHelp = false;
 
-    if (!parseCommandLine(argc, argv, config, dummyDisable1, dummyDisable2, dummyPath, dummyHelp, enableVsync, enableMSAA4x, overrideTargetFPS, overrideRaylibLogLevel)) {
+    if (!parseCommandLine(argc, argv, config, dummyDisable1, dummyDisable2, dummyPath, dummyHelp, enableVsync, enableMSAA4x, overrideTargetFPS, overrideRaylibLogLevel, seed)) {
         std::cerr << "Error parsing command line arguments\n";
         printUsage(argv[0]);
         return 2;

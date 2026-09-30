@@ -11,6 +11,7 @@ struct Config {
     int renderDistance;
     float gamma;
     bool atlasRegeneration;
+    int32_t seed;
 };
 
 #endif // CONFIG_HPP

@@ -21,6 +21,14 @@ static inline int64_t PackChunkKey(int32_t x, int32_t y, int32_t z) {
     return (ux << 42) | (uy << 21) | uz;
 }
 
+static inline int64_t PackVerticalChunkKey(int32_t x, int32_t z) {
+    const int64_t BIAS = 1LL << 31;
+    const int64_t MASK = (1LL << 32) - 1;
+    int64_t ux = static_cast<int64_t>(x) + BIAS;
+    int64_t uz = static_cast<int64_t>(z) + BIAS;
+    return (ux << 32) | (uz & MASK);
+}
+
 static inline std::tuple<int32_t,int32_t,int32_t> UnpackChunkKey(int64_t key) {
     const int64_t BIAS = 1 << 20;
     const int64_t MASK = (1LL << 21) - 1;
@@ -28,6 +36,16 @@ static inline std::tuple<int32_t,int32_t,int32_t> UnpackChunkKey(int64_t key) {
     int32_t y = (int32_t)(((key >> 21) & MASK) - BIAS);
     int32_t z = (int32_t)((key & MASK) - BIAS);
     return {x, y, z};
+}
+
+static inline std::tuple<int32_t, int32_t> UnpackVerticalChunkKey(int64_t key) {
+    const int64_t BIAS = 1LL << 31;
+    const int64_t MASK = (1LL << 32) - 1;
+    int64_t ux = (key >> 32) & MASK;
+    int64_t uz = key & MASK;
+    int32_t x = static_cast<int32_t>(ux - BIAS);
+    int32_t z = static_cast<int32_t>(uz - BIAS);
+    return {x, z};
 }
 
 class World {
@@ -38,17 +56,30 @@ public:
 
     std::shared_ptr<Chunk> GetChunkAt(int32_t cx, int32_t cy, int32_t cz) const {
         auto it = chunks.find(PackChunkKey(cx, cy, cz));
-        if (it == chunks.end()) return nullptr;
-        return it->second;
+        return it != chunks.end() ? it->second : nullptr;
+    }
+
+    std::shared_ptr<VerticalChunk> GetVerticalChunkAt(int32_t cx, int32_t cz) const {
+        auto it = verticalChunks.find(PackVerticalChunkKey(cx, cz));
+        return it != verticalChunks.end() ? it->second : nullptr;
     }
 
     bool HasChunkAt(int32_t cx, int32_t cy, int32_t cz) const {
         return chunks.find(PackChunkKey(cx, cy, cz)) != chunks.end();
     }
 
+    bool HasVerticalChunkAt(int32_t cx, int32_t cz) const {
+        return verticalChunks.find(PackVerticalChunkKey(cx, cz)) != verticalChunks.end();
+    }
+
     void AddChunk(const std::shared_ptr<Chunk>& chunk) {
         int64_t key = PackChunkKey(chunk->GetChunkX(), chunk->GetChunkY(), chunk->GetChunkZ());
         chunks[key] = chunk;
+    }
+
+    void AddVerticalChunk(const std::shared_ptr<VerticalChunk>& verticalChunk) {
+        int64_t key = PackVerticalChunkKey(verticalChunk->GetChunkX(), verticalChunk->GetChunkZ());
+        verticalChunks[key] = verticalChunk;
     }
 
     void EnsureChunk(int32_t cx, int32_t cy, int32_t cz) {
@@ -318,6 +349,7 @@ private:
 
     std::unordered_map<int64_t, std::shared_ptr<Chunk>> chunks;
     std::unordered_set<int64_t> renderedChunks;
+    std::unordered_map<int64_t, std::shared_ptr<VerticalChunk>> verticalChunks;
     std::queue<int64_t> dirtyQueue;
     std::unordered_set<int64_t> dirtyQueued;
     std::string name;

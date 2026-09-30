@@ -3,14 +3,16 @@
 #include <memory>
 #include "../lib/World.hpp"
 #include "../core/enum.hpp"
+#include "../core/gamestate.hpp"
 #include "raylib.h"
 
 struct CommandContext {
-    Camera3D* camera;
+    CameraState* cameraState;
     World* world;
     int* renderDistance;
     GameModes* currentGamemode;
     bool* isCreativeFlyEnabled;
+    bool* isMovementsEnabled;
 };
 
 static BlockFillActions ParseFillAction(const std::string &s) {
@@ -29,24 +31,56 @@ bool HandleCommand(const std::string& input, CommandContext& ctx) {
 
     if (command == "teleport" || command == "tp") {
         float x, y, z;
-        if (!(iss >> x >> y >> z)) { std::cout << "Invalid teleport command.\n"; return false; }
-        if (ctx.camera) ctx.camera->position = { x, y, z };
+        if (!(iss >> x >> y >> z)) {
+            std::cout << "Invalid teleport command.\n";
+            return false;
+        }
+
+        if (!ctx.cameraState) return false;
+
+        ctx.cameraState->camera.position = { x, y, z };
+        ctx.cameraState->body.position = { x, y, z };
+        ctx.cameraState->body.velocity = { 0.0f, 0.0f, 0.0f };
+        ctx.cameraState->body.OnGround = false;
+
+        ctx.cameraState->renderState.previousCameraPosition = ctx.cameraState->camera.position;
+        ctx.cameraState->renderState.currentCameraPosition = ctx.cameraState->camera.position;
+
         return true;
     }
 
-    if (command == "rotation" || command == "rt") {
-        float x, y, z;
-        if (!(iss >> x >> y >> z)) { std::cout << "Invalid rotation command.\n"; return false; }
-        if (ctx.camera) ctx.camera->target = { x, y, z };
+    if (command == "rotation" || command == "rt" || command == "target") {
+        float yaw, pitch;
+        if (!(iss >> yaw >> pitch)) {
+            std::cout << "Invalid rotation command.\n";
+            return false;
+        }
+
+        if (!ctx.cameraState) return false;
+
+        ctx.cameraState->rotation.x = yaw;
+        ctx.cameraState->rotation.y = ClampFloat(pitch, -1.5533f, 1.5533f);
+
+        Vector3 forward = {
+            cosf(ctx.cameraState->rotation.y) * sinf(ctx.cameraState->rotation.x),
+            sinf(ctx.cameraState->rotation.y),
+            cosf(ctx.cameraState->rotation.y) * cosf(ctx.cameraState->rotation.x)
+        };
+
+        ctx.cameraState->camera.target = Vector3Add(ctx.cameraState->camera.position, forward);
         return true;
     }
 
     if (command == "fov") {
         float fov;
-        if (!(iss >> fov)) { std::cout << "Invalid fov command.\n"; return false; }
-        if (ctx.camera) ctx.camera->fovy = fov;
+        if (!(iss >> fov)) {
+            std::cout << "Invalid fov command.\n";
+            return false;
+        }
+        if (ctx.cameraState) ctx.cameraState->camera.fovy = fov;
         return true;
     }
+
 
     if (command == "renderdistance" || command == "rd") {
         int rd;

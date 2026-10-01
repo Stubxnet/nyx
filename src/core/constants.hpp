@@ -81,3 +81,5 @@ constexpr int32_t MAX_OCEAN_DEPTH = 32;
 constexpr float BIOME_SIZE = 4096.0f;
 
 constexpr int32_t DEFAULT_SEED = 1337;
+
+constexpr int GENERATION_BUDGET = 16;

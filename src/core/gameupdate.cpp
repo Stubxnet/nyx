@@ -140,6 +140,28 @@ static void handleBlockKeys(GameState& gs) {
     }
 }
 
+static void updateWorldGeneration(GameState& gs) {
+    gs.world.world.ProcessGenerationQueue([&](int32_t cx, int32_t cy, int32_t cz) {
+        auto chunk = gs.world.world.GetChunkAt(cx, cy, cz);
+        if (!chunk) return;
+
+        auto verticalChunk = gs.world.world.GetVerticalChunkAt(cx, cz);
+        if (!verticalChunk) {
+            verticalChunk = GenerateChunkHeightmap(cx, cz, gs.world.seed);
+            gs.world.world.AddVerticalChunk(verticalChunk);
+        }
+
+        auto newChunk = GenerateChunkBlocks(*verticalChunk, cy);
+        if (newChunk) {
+            gs.world.world.AddChunk(newChunk);
+            chunk->UpdateChunkModel(newChunk->GetModel());
+            chunk->SetState(ChunkState::Generated);
+        } else {
+            std::cout << "Error generating chunk at: " << cx << " " << cy << " " << cz << std::endl;
+        }
+    });
+}
+
 static void updateChunkBudget(GameState& gs) {
     int32_t camCx = (int32_t)std::floor(gs.camera.camera.position.x / (float)CHUNK_SIZE);
     int32_t camCy = (int32_t)std::floor(gs.camera.camera.position.y / (float)CHUNK_SIZE);
@@ -151,45 +173,54 @@ static void updateChunkBudget(GameState& gs) {
                 int cx = camCx + ox;
                 int cy = camCy + oy;
                 int cz = camCz + oz;
+                
+                auto chunk = gs.world.world.GetChunkAt(cx, cy, cz);
 
                 if (!gs.world.world.HasChunkAt(cx, cy, cz)) {
                     gs.world.world.EnsureChunk(cx, cy, cz);
+                    chunk = gs.world.world.GetChunkAt(cx, cy, cz);
                     gs.world.world.MarkChunkAsDirty(cx, cy, cz);
+                    chunk->SetState(ChunkState::Generating);
+                    gs.world.world.QueueChunkForGeneration(cx, cy, cz);
                 }
 
-                auto chunk = gs.world.world.GetChunkAt(cx, cy, cz);
+                
                 if (!chunk) continue;
 
                 if (!chunk->IsChunkLoaded() || chunk->IsModelEmpty()) {
                     gs.world.world.MarkChunkAsDirty(cx, cy, cz);
                 }
+
+                if (!gs.world.world.HasVerticalChunkAt(cx, cz)) {
+                    auto verticalChunk = GenerateChunkHeightmap(cx, cz, gs.world.seed);
+                    gs.world.world.AddVerticalChunk(verticalChunk);
+                }
             }
         }
     }
 
-    gs.world.world.ProcessDirtyQueue((int32_t)MAX_DIRTY_CHUNKS_PER_FRAME, [&](int32_t cx, int32_t cy, int32_t cz) {
+    gs.world.world.ProcessDirtyQueue(MAX_DIRTY_CHUNKS_PER_FRAME, [&](int32_t cx, int32_t cy, int32_t cz) {
         auto chunk = gs.world.world.GetChunkAt(cx, cy, cz);
-        if (!chunk || !chunk->IsChunkDirty()) return;
+
+        if (!chunk || !chunk->IsChunkDirty()) { return; }
+
+        if (chunk->GetState() == ChunkState::Generating) { return; }
 
         chunk->SetState(ChunkState::Meshing);
 
-        Model m = BuildModelForChunk(chunk, &gs.world.world);
-
-        if (m.meshCount > 0) {
-            chunk->UpdateChunkModel(m);
-            if (gs.resources.atlas.id) {
-                chunk->SetChunkMaterialTexture(gs.resources.atlas);
+        Model model = BuildModelForChunk(chunk, &gs.world.world);
+        chunk->UpdateChunkModel(model);
+            if (model.meshCount > 0 &&
+                gs.resources.atlas.id != 0) {
+                chunk->SetChunkMaterialTexture(
+                    gs.resources.atlas
+                );
             }
             chunk->MarkAsLoaded();
             chunk->UnmarkAsDirty();
             chunk->SetState(ChunkState::Ready);
-        } else {
-            chunk->UpdateChunkModel(Model{0});
-            chunk->MarkAsLoaded();
-            chunk->UnmarkAsDirty();
-            chunk->SetState(ChunkState::Generated);
         }
-    });
+    );
 }
 
 static void updateMovementAndRaycast(GameState& gs) {
@@ -286,6 +317,7 @@ void updateGame(GameState& gs) {
     }
 
     updateChunkBudget(gs);
+    updateWorldGeneration(gs);
     handleChat(gs);
     handleDebugKeys(gs);
     handleBlockKeys(gs);

@@ -82,6 +82,7 @@ public:
         verticalChunks[key] = verticalChunk;
     }
 
+
     void EnsureChunk(int32_t cx, int32_t cy, int32_t cz) {
         if (HasChunkAt(cx, cy, cz)) return;
         AddChunk(std::make_shared<Chunk>(cx, cy, cz));
@@ -145,23 +146,6 @@ public:
         }
     }
 
-    void ProcessDirtyQueue(int32_t dirtyBudget, const std::function<void(int32_t,int32_t,int32_t)>& fn) {
-        int32_t budget = dirtyBudget;
-
-        while (budget > 0 && !dirtyQueue.empty()) {
-            int64_t key = dirtyQueue.front();
-            dirtyQueue.pop();
-            dirtyQueued.erase(key);
-
-            auto [cx, cy, cz] = UnpackChunkKey(key);
-            auto ch = GetChunkAt(cx, cy, cz);
-            if (!ch || !ch->IsChunkDirty()) continue;
-
-            fn(cx, cy, cz);
-            --budget;
-        }
-    }
-
     void MarkNeighborChunksDirty(int32_t cx, int32_t cy, int32_t cz) {
         const int dirs[6][3] = {
             {-1, 0, 0}, {1, 0, 0},
@@ -190,6 +174,52 @@ public:
         auto ch = GetChunkAt(cx, cy, cz);
         if (!ch) return;
         ch->UnmarkAsDirty();
+    }
+    
+    void ProcessDirtyQueue(int32_t dirtyBudget, const std::function<void(int32_t,int32_t,int32_t)>& fn) {
+        int32_t budget = dirtyBudget;
+
+        while (budget > 0 && !dirtyQueue.empty()) {
+            int64_t key = dirtyQueue.front();
+            dirtyQueue.pop();
+            dirtyQueued.erase(key);
+
+            auto [cx, cy, cz] = UnpackChunkKey(key);
+            auto ch = GetChunkAt(cx, cy, cz);
+            if (!ch || !ch->IsChunkDirty()) continue;
+
+            fn(cx, cy, cz);
+            --budget;
+        }
+    }
+
+    void QueueChunkForGeneration(int32_t cx, int32_t cy, int32_t cz) {
+        int64_t key = PackChunkKey(cx, cy, cz);
+        if (generationQueued.insert(key).second) {
+            generationQueue.push(key);
+        }
+    }
+    
+    void ProcessGenerationQueue(const std::function<void(int32_t,int32_t,int32_t)>& generatorFn) {
+        int32_t budget = GENERATION_BUDGET;
+
+        while (budget > 0 && !generationQueue.empty()) {
+            int64_t key = generationQueue.front();
+            generationQueue.pop();
+            generationQueued.erase(key);
+
+            auto [cx, cy, cz] = UnpackChunkKey(key);
+            auto ch = GetChunkAt(cx, cy, cz);
+
+            if (!ch) {
+                EnsureChunk(cx, cy, cz);
+                ch = GetChunkAt(cx, cy, cz);
+                if (!ch) continue;
+            }
+
+            generatorFn(cx, cy, cz);
+            --budget;
+        }
     }
 
     void UnloadChunk(int32_t cx, int32_t cy, int32_t cz) {
@@ -352,6 +382,8 @@ private:
     std::unordered_map<int64_t, std::shared_ptr<VerticalChunk>> verticalChunks;
     std::queue<int64_t> dirtyQueue;
     std::unordered_set<int64_t> dirtyQueued;
+    std::queue<int64_t> generationQueue;
+    std::unordered_set<int64_t> generationQueued;
     std::string name;
     Vector3 spawnpoint;
 };

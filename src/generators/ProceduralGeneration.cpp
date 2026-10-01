@@ -60,111 +60,99 @@ namespace
     }
 }
 
-std::shared_ptr<VerticalChunk> GenerateChunkHeightmap(
-    int32_t cx,
-    int32_t cz,
-    int32_t seed)
-{
+std::shared_ptr<VerticalChunk> GenerateChunkHeightmap(int32_t cx, int32_t cz, int32_t seed) {
     auto result = std::make_shared<VerticalChunk>(cx, cz);
 
-    FastNoiseLite continentNoise, temperatureNoise, moistureNoise;
-    FastNoiseLite erosionNoise, warpNoise, detailNoise;
+    FastNoiseLite continentNoise, temperatureNoise, moistureNoise, erosionNoise, warpNoise, detailNoise, biomeNoise;
+    ConfigureNoise(continentNoise,  seed,     0.00020f / 2.0f, 3);
+    ConfigureNoise(temperatureNoise, seed + 1, 1.0f / (BIOME_SIZE * 3.0f), 2);
+    ConfigureNoise(moistureNoise,    seed + 2, 1.0f / (BIOME_SIZE * 3.0f), 2);
+    ConfigureNoise(erosionNoise,     seed + 3, 1.0f / (BIOME_SIZE * 2.0f), 2);
+    ConfigureNoise(warpNoise,        seed + 4, 0.00025f / 2.0f, 2);
+    ConfigureNoise(detailNoise,      seed + 5, 0.0045f, 4);
 
-    ConfigureNoise(continentNoise, seed,     0.00020f, 3);
-    ConfigureNoise(temperatureNoise, seed+1, 1.0f / BIOME_SIZE, 3);
-    ConfigureNoise(moistureNoise,    seed+2, 1.0f / BIOME_SIZE, 3);
-    ConfigureNoise(erosionNoise,     seed+3, 1.0f / (BIOME_SIZE * 0.65f), 2);
-    ConfigureNoise(warpNoise,        seed+4, 0.00025f, 2);
-    ConfigureNoise(detailNoise,       seed+5, 0.003f, 2);
 
-    for (int localX = 0; localX < CHUNK_SIZE; ++localX)
-    {
-        for (int localZ = 0; localZ < CHUNK_SIZE; ++localZ)
-        {
+    biomeNoise.SetSeed(seed + 6);
+    biomeNoise.SetNoiseType(FastNoiseLite::NoiseType_Cellular);
+    biomeNoise.SetCellularDistanceFunction(FastNoiseLite::CellularDistanceFunction_EuclideanSq);
+    biomeNoise.SetCellularReturnType(FastNoiseLite::CellularReturnType_CellValue);
+    biomeNoise.SetCellularJitter(0.85f);
+    biomeNoise.SetFrequency(1.0f / (BIOME_SIZE * 4.0f));
+    biomeNoise.SetFractalType(FastNoiseLite::FractalType_None);
+
+    const float seaHeight01 = Clamp01(static_cast<float>(SEA_LEVEL - MIN_SURFACE_Y) / static_cast<float>(MAX_SURFACE_Y - MIN_SURFACE_Y));
+
+    const auto GetBiomeProfile = [seaHeight01](const Biome* biome, float& base, float& amplitude, float& roughness) {
+        if (biome == &Biomes::Plains) { base = 0.425f; amplitude = 0.018f; roughness = 0.025f; }
+        else if (biome == &Biomes::Forest) { base = 0.445f; amplitude = 0.045f; roughness = 0.070f; }
+        else if (biome == &Biomes::Desert) { base = 0.420f; amplitude = 0.025f; roughness = 0.040f; }
+        else if (biome == &Biomes::SnowPlains) { base = 0.435f; amplitude = 0.025f; roughness = 0.045f; }
+        else if (biome == &Biomes::Taiga) { base = 0.455f; amplitude = 0.050f; roughness = 0.080f; }
+        else if (biome == &Biomes::Badlands) { base = 0.470f; amplitude = 0.105f; roughness = 0.150f; }
+        else if (biome == &Biomes::Mountains) { base = 0.500f; amplitude = 0.220f; roughness = 0.300f; }
+        else if (biome == &Biomes::Beach) { base = seaHeight01 + 0.008f; amplitude = 0.010f; roughness = 0.015f; }
+        else { base = seaHeight01 - 0.08f; amplitude = 0.020f; roughness = 0.030f; }
+    };
+
+    for (int localX = 0; localX < CHUNK_SIZE; ++localX) {
+        for (int localZ = 0; localZ < CHUNK_SIZE; ++localZ) {
             const int worldX = GetWorldFromChunkAndLocal(cx, localX);
             const int worldZ = GetWorldFromChunkAndLocal(cz, localZ);
-
-            const float x = worldX * WORLD_SCALE;
-            const float z = worldZ * WORLD_SCALE;
-
+            const float x = worldX * WORLD_SCALE, z = worldZ * WORLD_SCALE;
             const float warpedX = x + warpNoise.GetNoise(x, z) * 48.0f;
-            const float warpedZ =
-                z + warpNoise.GetNoise(x + 1000.0f, z + 1000.0f) * 48.0f;
+            const float warpedZ = z + warpNoise.GetNoise(x + 1000.0f, z + 1000.0f) * 48.0f;
 
-            const float continental = Clamp01(Remap01(
-                continentNoise.GetNoise(warpedX, warpedZ)));
+            const float continental = Clamp01(Remap01(continentNoise.GetNoise(warpedX, warpedZ)));
+            const float temperature = Clamp01(Remap01(temperatureNoise.GetNoise(warpedX, warpedZ)));
+            const float moisture = Clamp01(Remap01(moistureNoise.GetNoise(warpedX, warpedZ)));
+            const float erosion = Clamp01(Remap01(erosionNoise.GetNoise(warpedX, warpedZ)));
+            const float detail = detailNoise.GetNoise(warpedX, warpedZ) * 0.5f;
+            const bool ocean = continental < SEA_CONTINENTALNESS;
+            const Biome* biome = ocean ? &Biomes::Ocean : &Biomes::Plains;
 
-            const float temperature = Clamp01(Remap01(
-                temperatureNoise.GetNoise(x, z)));
+            if (!ocean) {
+                const float biomeValue = Clamp01(Remap01(biomeNoise.GetNoise(warpedX, warpedZ)));
+                const int biomeSlot = std::min(6, static_cast<int>(biomeValue * 7.0f));
 
-            const float moisture = Clamp01(Remap01(
-                moistureNoise.GetNoise(x, z)));
+                switch (biomeSlot) {
+                    case 0: biome = &Biomes::Plains; break;
+                    case 1: biome = &Biomes::Forest; break;
+                    case 2: biome = &Biomes::Desert; break;
+                    case 3: biome = &Biomes::SnowPlains; break;
+                    case 4: biome = &Biomes::Taiga; break;
+                    case 5: biome = &Biomes::Badlands; break;
+                    default: biome = &Biomes::Mountains; break;
+                }
 
-            const float erosion = Clamp01(Remap01(
-                erosionNoise.GetNoise(warpedX, warpedZ)));
-
-            const float detail = detailNoise.GetNoise(
-                warpedX * 2.2f, warpedZ * 2.2f);
-
-            const float landMask = continental - SEA_CONTINENTALNESS;
-            const bool ocean = landMask < 0.0f;
-
-            float height01;
-
-            if (ocean)
-            {
-                const float depth = Clamp01(-landMask * 2.0f);
-                height01 = 0.30f - depth * 0.10f + detail * 0.015f;
+                if ((biome == &Biomes::Desert && temperature < 0.35f) ||
+                    (biome == &Biomes::SnowPlains && temperature > 0.70f) ||
+                    (biome == &Biomes::Taiga && temperature > 0.72f) ||
+                    (biome == &Biomes::Badlands && erosion < 0.30f)) {
+                    biome = &Biomes::Plains;
+                }
             }
-            else
-            {
-                const float landAmount = Clamp01(
-                    landMask / (1.0f - SEA_CONTINENTALNESS));
 
-                const float mountainInput =
-                    (continental - 0.62f) * 2.0f +
-                    (erosion - 0.5f) * 0.55f;
-
-                const float mountainFactor =
-                    SmoothStep(0.0f, 1.0f, mountainInput);
-
-                const float mountainRelief =
-                    mountainFactor * mountainFactor * 0.40f;
-
-                height01 =
-                    0.34f +
-                    landAmount * 0.20f +
-                    (erosion - 0.5f) * 0.08f +
-                    mountainRelief +
-                    detail * 0.025f;
+            float height01 = seaHeight01;
+            if (ocean) {
+                const float depthFactor = Clamp01((SEA_CONTINENTALNESS - continental) / 0.20f);
+                height01 = seaHeight01 - depthFactor * 0.12f + detail * 0.008f;
+            } else {
+                float base, amplitude, roughness;
+                GetBiomeProfile(biome, base, amplitude, roughness);
+                const float biomeHeight = base + detail * amplitude + (erosion - 0.5f) * roughness;
+                const float coastFactor = SmoothStep(SEA_CONTINENTALNESS, SEA_CONTINENTALNESS + 0.16f, continental);
+                height01 = seaHeight01 + (biomeHeight - seaHeight01) * coastFactor;
             }
 
             height01 = Clamp01(height01);
+            int32_t surfaceY = ocean ?
+                SEA_LEVEL - static_cast<int32_t>(Clamp01((seaHeight01 - height01) / 0.12f) * MAX_OCEAN_DEPTH) :
+                MIN_SURFACE_Y + static_cast<int32_t>(height01 * (MAX_SURFACE_Y - MIN_SURFACE_Y));
 
-            const int32_t surfaceY = ocean
-                ? SEA_LEVEL - static_cast<int32_t>(
-                    Clamp01((0.30f - height01) / 0.10f) *
-                    MAX_OCEAN_DEPTH)
-                : MIN_SURFACE_Y + static_cast<int32_t>(
-                    height01 * (MAX_SURFACE_Y - MIN_SURFACE_Y));
-
-            Biome biome = SelectBiome(
-                height01,
-                temperature,
-                moisture,
-                erosion,
-                ocean);
-
-            if (!ocean && surfaceY <= SEA_LEVEL + 2)
-                biome = Biomes::Beach;
+            if (!ocean && surfaceY >= SEA_LEVEL - 1 && surfaceY <= SEA_LEVEL + 2) biome = &Biomes::Beach;
 
             auto& cell = result->GetCell(localX, localZ);
-            cell.surfaceY = surfaceY;
-            cell.temperature = temperature;
-            cell.moisture = moisture;
-            cell.erosion = erosion;
-            cell.continentalness = continental;
-            cell.biome = biome;
+            cell = {surfaceY, temperature, moisture, erosion, continental, *biome};
         }
     }
 

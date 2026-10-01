@@ -66,6 +66,7 @@ enum BlockMaterial {
 enum class ChunkState : uint8_t {
     Unloaded,
     Generated,
+    Generating,
     Dirty,
     Meshing,
     Ready,

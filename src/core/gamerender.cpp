@@ -55,60 +55,89 @@ static void drawWorld(GameState& gs) {
 static void drawF3(GameState& gs) {
     if (!gs.hud.f3enabled || gs.hud.hideHUD) return;
 
-    gs.hud.fps = GetFPS();
-    if (gs.hud.fps < 10) gs.hud.fpsColor = RED;
-    if (gs.hud.fps > 10 && gs.hud.fps < 30) gs.hud.fpsColor = ORANGE;
-    else gs.hud.fpsColor = GREEN;
+    const auto& p = gs.camera.camera.position;
+    const int bx = (int)std::floor(p.x);
+    const int by = (int)std::floor(p.y);
+    const int bz = (int)std::floor(p.z);
 
-    const int line = gs.hud.textSpacing;
+    auto [cx, lx] = World::WorldToChunkAndLocal(bx);
+    auto [cy, ly] = World::WorldToChunkAndLocal(by);
+    auto [cz, lz] = World::WorldToChunkAndLocal(bz);
+
+    auto chunk = gs.world.world.GetVerticalChunkAt(cx, cz);
+
+    int surfaceY = 0;
+    float temperature = 0.f, moisture = 0.f;
+    float erosion = 0.f, continentalness = 0.f;
+    const char* biomeName = "Unknown";
+
+    if (chunk) {
+        auto& cell = chunk->GetCell(lx, lz);
+        surfaceY = cell.surfaceY;
+        temperature = cell.temperature;
+        moisture = cell.moisture;
+        erosion = cell.erosion;
+        continentalness = cell.continentalness;
+
+        biomeName = GetBiomeName(cell.biome.id);
+    }
+
+    gs.hud.fps = GetFPS();
+    gs.hud.fpsColor = gs.hud.fps < 10 ? RED :
+                      gs.hud.fps < 30 ? ORANGE : GREEN;
+
     const int lineSize = gs.hud.lineSize;
     const int textSize = gs.hud.textSize;
-    int yPos = line + lineSize;
+    int yPos = gs.hud.textSpacing + lineSize;
+    const Color color = gs.hud.f3color;
 
-    Color defaultColor = gs.hud.f3color;
     auto drawLine = [&](const char* text) {
-        DrawText(text, 15, yPos, textSize, defaultColor);
+        DrawText(text, 15, yPos, textSize, color);
         yPos += lineSize;
     };
 
-    DrawText(TextFormat("FPS: %i (Target: %i)", GetFPS(), gs.targetFPS), 15, gs.hud.textSpacing, gs.hud.textSize, gs.hud.fpsColor);
+    DrawText(TextFormat("FPS: %i (Target: %i)", GetFPS(), gs.targetFPS),
+             15, gs.hud.textSpacing, textSize, gs.hud.fpsColor);
+
     drawLine("Nyx build pre-release 1.0.0");
-
-    drawLine("Camera controls:");
-    drawLine("W, A, S, D, Space, Shift to move");
-    drawLine("Arrow keys or mouse to look around");
-    drawLine("T to open chat");
-    drawLine("Zoom keys: num-plus, num-minus or mouse scroll");
-
     drawLine("Current camera status:");
 
-    const char* cameraModes[] = {"FREE", "FIRST_PERSON", "THIRD_PERSON", "ORBITAL", "CUSTOM"};
-    drawLine(TextFormat("Camera mode: %s", cameraModes[std::min(gs.camera.cameraMode, 4)]));
+    const char* cameraModes[] = {
+        "FREE", "FIRST_PERSON", "THIRD_PERSON", "ORBITAL", "CUSTOM"
+    };
+    drawLine(TextFormat("Camera mode: %s",
+        cameraModes[std::min((int)gs.camera.cameraMode, 4)]));
 
-    const char* projections[] = {"PERSPECTIVE", "ORTHOGRAPHIC", "CUSTOM"};
-    drawLine(TextFormat("Projection: %s", projections[std::min(gs.camera.camera.projection, 2)]));
+    const char* projections[] = {
+        "PERSPECTIVE", "ORTHOGRAPHIC", "CUSTOM"
+    };
+    drawLine(TextFormat("Projection: %s", projections[std::min((int)gs.camera.camera.projection, 2)]));
 
-    drawLine(TextFormat("Position: (%06.3f, %06.3f, %06.3f)",
-           gs.camera.camera.position.x,
-           gs.camera.camera.position.y,
-           gs.camera.camera.position.z));
+    drawLine(TextFormat("Position blocks: (%d, %d, %d)", bx, by, bz));
+    drawLine(TextFormat("Chunk courant: (%d, %d) | local: (%d, %d)",
+                         cx, cz, lx, lz));
 
     drawLine(TextFormat("Target: (%06.3f, %06.3f, %06.3f)",
-           gs.camera.camera.target.x,
-           gs.camera.camera.target.y,
-           gs.camera.camera.target.z));
+        gs.camera.camera.target.x,
+        gs.camera.camera.target.y,
+        gs.camera.camera.target.z));
 
-    drawLine(TextFormat("Up: (%06.3f, %06.3f, %06.3f)",
-           gs.camera.camera.up.x,
-           gs.camera.camera.up.y,
-           gs.camera.camera.up.z));
-
-    drawLine(TextFormat("Chunks on world: %d", (int)gs.world.world.GetChunkCount()));
+    drawLine(TextFormat("Chunks on world: %d",
+        (int)gs.world.world.GetChunkCount()));
     drawLine(TextFormat("World seed: %d", (int32_t)gs.world.seed));
     drawLine(TextFormat("Render distance: %d", gs.renderDistance));
+    drawLine(TextFormat("Surface Y: %d", surfaceY));
+    drawLine(TextFormat("Temperature: %.3f", temperature));
+    drawLine(TextFormat("Moisture: %.3f", moisture));
+    drawLine(TextFormat("Erosion: %.3f", erosion));
+    drawLine(TextFormat("Continentalness: %.3f", continentalness));
+    drawLine(TextFormat("Biome: %s", biomeName));
 
-    const char* gamemodes[] = {"SURVIVAL", "CREATIVE", "SPECTATOR", "BUILDER", "UNKNOWN"};
-    drawLine(TextFormat("Gamemode: %s", gamemodes[std::min((int)gs.currentGamemode, 4)]));
+    const char* gamemodes[] = {
+        "SURVIVAL", "CREATIVE", "SPECTATOR", "BUILDER", "UNKNOWN"
+    };
+    drawLine(TextFormat("Gamemode: %s",
+        gamemodes[std::min((int)gs.currentGamemode, 4)]));
 }
 
 static void drawChat(GameState& gs) {

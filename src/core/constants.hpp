@@ -83,3 +83,20 @@ constexpr float BIOME_SIZE = 4096.0f;
 constexpr int32_t DEFAULT_SEED = 1337;
 
 constexpr int GENERATION_BUDGET = 16;
+
+constexpr float SEA_CONTINENTALNESS = 0.50f;
+
+constexpr float COAST_START = SEA_CONTINENTALNESS;
+constexpr float COAST_END   = SEA_CONTINENTALNESS + 0.12f;
+
+constexpr float WORLD_WARP_DISTANCE = 32.0f;
+
+constexpr float CONTINENT_FREQUENCY = 0.00010f;
+constexpr float CLIMATE_FREQUENCY   = 0.00045f;
+constexpr float EROSION_FREQUENCY   = 0.00065f;
+constexpr float WEIRDNESS_FREQUENCY = 0.00030f;
+constexpr float DETAIL_FREQUENCY    = 0.00450f;
+constexpr float WARP_FREQUENCY      = 0.000125f;
+
+constexpr float OCEAN_DEPTH_FREQUENCY = 0.02f;
+constexpr float OCEAN_DETAIL_FREQUENCY = 0.08f;

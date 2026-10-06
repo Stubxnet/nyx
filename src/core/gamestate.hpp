@@ -15,6 +15,7 @@
 #include "../lib/RaycastHit.hpp"
 #include "../lib/RenderState.hpp"
 #include "../lib/Body.hpp"
+#include "../lib/Biome.hpp"
 
 #include "../core/constants.hpp"
 

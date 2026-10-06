@@ -21,7 +21,7 @@
 
 #include "tick/TickUpdate.cpp"
 
-#include "generators/ProceduralGeneration.cpp"
+#include "generators/WorldGeneration.cpp"
 
 #include "ui/Interface.cpp"
 #include "ui/drawingUtils.hpp"

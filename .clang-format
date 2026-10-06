@@ -1,0 +1,40 @@
+BasedOnStyle: LLVM
+
+Language: Cpp
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+ColumnLimit: 200
+
+BreakBeforeBraces: Attach
+
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortLoopsOnASingleLine: true
+AllowShortBlocksOnASingleLine: Always
+
+BinPackArguments: true
+BinPackParameters: true
+
+AlwaysBreakAfterReturnType: None
+AlwaysBreakAfterDefinitionReturnType: None
+
+PenaltyBreakBeforeFirstCallParameter: 1000000
+PenaltyBreakAssignment: 1000000
+
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+SpaceBeforeParens: ControlStatements
+SpaceBeforeAssignmentOperators: true
+
+BreakConstructorInitializers: BeforeComma
+ConstructorInitializerAllOnOneLineOrOnePerLine: false
+
+IndentCaseLabels: false
+NamespaceIndentation: None
+
+IncludeBlocks: Preserve
+SortIncludes: false

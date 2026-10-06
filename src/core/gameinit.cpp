@@ -43,6 +43,7 @@ static void initWorld(GameState& gs, int32_t seed) {
     gs.world = WorldState("Default World", {0.0f, 9.5f, 2.0f});
     auto& world = gs.world.world;
     gs.world.seed = seed;
+    ConfigureWorldGeneration(seed);
 
     int range = gs.renderDistance;
 

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../core/constants.hpp"
 #include "Biome.hpp"
 
 #include <array>

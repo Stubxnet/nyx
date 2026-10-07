@@ -67,18 +67,16 @@ constexpr float DEFAULT_ZOOM = 0.0f;
 constexpr float DEFAULT_ACCUMULATOR_PLAYER = 0.0f;
 constexpr double DEFAULT_ACCUMULATOR = 0.0;
 
+//////////////////////
+// World generation //
+//////////////////////
+constexpr int32_t SEA_LEVEL = 0;
+constexpr int32_t MIN_SURFACE_Y = -64;
+constexpr int32_t MAX_SURFACE_Y = 512;
+constexpr int32_t MIN_WORLD_Y = -32768;
 constexpr float WORLD_SCALE = 16.0f;
 
-constexpr int32_t MIN_WORLD_Y = -64;
-
-constexpr int32_t MIN_SURFACE_Y = -8;
-constexpr int32_t MAX_SURFACE_Y = 128;
-
-constexpr int32_t SEA_LEVEL = 0;
-
 constexpr int32_t MAX_OCEAN_DEPTH = 32;
-
-constexpr float BIOME_SIZE = 4096.0f;
 
 constexpr int32_t DEFAULT_SEED = 1337;
 
@@ -98,5 +96,5 @@ constexpr float WEIRDNESS_FREQUENCY = 0.00030f;
 constexpr float DETAIL_FREQUENCY    = 0.00450f;
 constexpr float WARP_FREQUENCY      = 0.000125f;
 
-constexpr float OCEAN_DEPTH_FREQUENCY = 0.02f;
-constexpr float OCEAN_DETAIL_FREQUENCY = 0.08f;
+constexpr float OCEAN_DEPTH_FREQUENCY = 0.00035f;
+constexpr float OCEAN_DETAIL_FREQUENCY = 0.0015f;

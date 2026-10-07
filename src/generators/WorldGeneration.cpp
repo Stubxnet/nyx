@@ -51,7 +51,7 @@ std::shared_ptr<Chunk> GenerateChunkBlocks(const VerticalChunk& verticalChunk, i
                     for (int y = 0; y < CHUNK_SIZE; ++y) {
                         const int64_t worldY = baseY + static_cast<int64_t>(y);
 
-                        //if (worldY <= SEA_LEVEL) { chunk->SetBlockId(x, y, z, BlockId{2}); }
+                        // if (worldY <= SEA_LEVEL) { chunk->SetBlockId(x, y, z, BlockId{2}); }
                     }
                 }
 

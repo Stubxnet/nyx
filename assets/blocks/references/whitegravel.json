@@ -1,0 +1,15 @@
+{
+  "id": 13,
+  "displayName": "White Gravel",
+  "resistance": 30,
+  "type": "FULL",
+  "material": "SAND",
+  "faces": {
+    "top": "whitegravel",
+    "bottom": "whitegravel",
+    "east": "whitegravel",
+    "west": "whitegravel",
+    "north": "whitegravel",
+    "south": "whitegravel"
+  }
+}

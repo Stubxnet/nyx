@@ -3,7 +3,7 @@
   "displayName": "Grass Block",
   "resistance": 30,
   "type": "FULL",
-  "material": "DIRT",
+  "material": "SAND",
   "faces": {
     "top": "grass_top",
     "bottom": "dirt",

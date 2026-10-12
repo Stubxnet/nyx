@@ -1,0 +1,15 @@
+{
+  "id": 15,
+  "displayName": "Sponge",
+  "resistance": 30,
+  "type": "FULL",
+  "material": "VEGETAL",
+  "faces": {
+    "top": "sponge",
+    "bottom": "sponge",
+    "east": "sponge",
+    "west": "sponge",
+    "north": "sponge",
+    "south": "sponge"
+  }
+}

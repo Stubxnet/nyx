@@ -1,0 +1,15 @@
+{
+  "id": 14,
+  "displayName": "Red Gravel",
+  "resistance": 30,
+  "type": "FULL",
+  "material": "SAND",
+  "faces": {
+    "top": "redgravel",
+    "bottom": "redgravel",
+    "east": "redgravel",
+    "west": "redgravel",
+    "north": "redgravel",
+    "south": "redgravel"
+  }
+}

@@ -3,7 +3,7 @@
   "displayName": "Dirt",
   "resistance": 30,
   "type": "FULL",
-  "material": "DIRT",
+  "material": "SAND",
   "faces": {
     "top": "dirt",
     "bottom": "dirt",

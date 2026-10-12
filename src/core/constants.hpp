@@ -71,30 +71,67 @@ constexpr double DEFAULT_ACCUMULATOR = 0.0;
 // World generation //
 //////////////////////
 constexpr int32_t SEA_LEVEL = 0;
-constexpr int32_t MIN_SURFACE_Y = -64;
+
+constexpr int32_t MIN_SURFACE_Y = -128;
 constexpr int32_t MAX_SURFACE_Y = 512;
+
 constexpr int32_t MIN_WORLD_Y = -32768;
+
+// -----------------------------------------------------------------------------
+// world generation
+// -----------------------------------------------------------------------------
+
+constexpr uint32_t DEFAULT_SEED = 1337;
+
+constexpr int GENERATION_BUDGET = 1;
+
 constexpr float WORLD_SCALE = 16.0f;
 
-constexpr int32_t MAX_OCEAN_DEPTH = 32;
-
-constexpr int32_t DEFAULT_SEED = 1337;
-
-constexpr int GENERATION_BUDGET = 16;
+// -----------------------------------------------------------------------------
+// continentalness
+// -----------------------------------------------------------------------------
 
 constexpr float SEA_CONTINENTALNESS = 0.50f;
 
-constexpr float COAST_START = SEA_CONTINENTALNESS;
-constexpr float COAST_END   = SEA_CONTINENTALNESS + 0.12f;
+constexpr float COAST_START = 0.40f;
+constexpr float COAST_END   = 0.60f;
+
+// -----------------------------------------------------------------------------
+// terrain heights
+// -----------------------------------------------------------------------------
+
+constexpr float MAX_OCEAN_DEPTH_BLOCKS = 32.0f;
+constexpr float MIN_OCEAN_DEPTH_BLOCKS = 3.0f;
+constexpr float OCEAN_DETAIL_BLOCKS    = 1.25f;
+
+constexpr float COASTAL_HEIGHT_BLOCKS = 10.0f;
+constexpr float CONTINENTAL_HEIGHT_BLOCKS = 76.0f;
+
+constexpr float MOUNTAIN_HEIGHT_BLOCKS = 120.0f;
+constexpr float VALLEY_DEPTH_BLOCKS    = 22.0f;
+constexpr float TERRAIN_DETAIL_BLOCKS  = 3.0f;
+
+// -----------------------------------------------------------------------------
+// domain warp
+// -----------------------------------------------------------------------------
 
 constexpr float WORLD_WARP_DISTANCE = 32.0f;
 
-constexpr float CONTINENT_FREQUENCY = 0.00010f;
-constexpr float CLIMATE_FREQUENCY   = 0.00045f;
-constexpr float EROSION_FREQUENCY   = 0.00065f;
-constexpr float WEIRDNESS_FREQUENCY = 0.00030f;
-constexpr float DETAIL_FREQUENCY    = 0.00450f;
-constexpr float WARP_FREQUENCY      = 0.000125f;
+// -----------------------------------------------------------------------------
+// noise frequencies
+//
+// WORLD_SCALE = 16 means that the effective wavelength in world blocks is
+// approximately:
+//
+//     wavelength = 1.0 / frequency / WORLD_SCALE
+// -----------------------------------------------------------------------------
 
+constexpr float CONTINENT_FREQUENCY = 0.00010f;
+constexpr float CLIMATE_FREQUENCY = 0.00025f;
+constexpr float EROSION_FREQUENCY = 0.00030f;
+constexpr float WEIRDNESS_FREQUENCY = 0.00028f;
+constexpr float DETAIL_FREQUENCY = 0.00350f;
+constexpr float WARP_FREQUENCY = 0.000125f;
 constexpr float OCEAN_DEPTH_FREQUENCY = 0.00035f;
-constexpr float OCEAN_DETAIL_FREQUENCY = 0.0015f;
+constexpr float OCEAN_DETAIL_FREQUENCY = 0.00150f;
+

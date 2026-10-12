@@ -1,7 +1,7 @@
 ## Nyx
 
 > [!WARNING]
-> Actually this project is under active development, so you can find :
+> Actually this project is under active development, so you can find TONS of:
 > Dead code ;
 > Not-working features ;
 > Bugs ;
@@ -43,6 +43,7 @@ When in-game :
  - `Left-Shift` to sneak/move down,
  - Left-click to break a block,
  - Right-click to place a block,
+ - Mouse middle button to pickup the targeted block type
  - `F1` to hide interface,
  - `F2` to take a screenshot,
  - `F3` to show/hide debug menu,
@@ -55,12 +56,12 @@ Supported commands :
 
  - `/setblock  x y z id` (alias : `/sb`)
  - `/fill ax ay az bx by bz id`
- - `/tp x y z` (currently not working due to a bug)
+ - `/tp x y z`
  - `/renderdistance  renderdistance` (alias `/rd`, only way to change render distance)
- - `/rotation  x y z` (alias `/rt`, three float, not working due to the same bug as /tp)
+ - `/rotation  x y z`
  - `/fov fov` (only way to change FOV)
  - `/gamemode [0|1|2|3] [survival|creative|spectator|builder]`
- - `/fly` to activate/deactivate creative fly mode
+ - `/fly` to activate/deactivate creative fly mode (not working)
 
 ### Supported features
 
@@ -75,9 +76,9 @@ Supported commands :
 - [ ] Entities raycasting
 - [ ] Lighting system
 - [ ] Pathfinding
-- [ ] Procedural generation:
-  - [ ] Biome generator
-  - [ ] Heightmaps generator
+- [X] Procedural generation:
+  - [X] Biome generator
+  - [X] Heightmaps generator
   - [ ] Prefabs
   - [ ] Structures
 - [ ] Adjustable keybindings
@@ -90,3 +91,4 @@ Supported commands :
 Thanks to ME to have developped ALL this project !
 
 (And to Energomy for pointing out some of the glaring flaws in my code...)
+(that was perhaps a bit narssisistic)

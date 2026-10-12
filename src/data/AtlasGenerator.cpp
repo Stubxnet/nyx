@@ -9,6 +9,8 @@
 #include <array>
 #include <cstdint>
 #include <stdexcept>
+#include <limits>
+#include <cmath>
 
 #include <nlohmann/json.hpp>
 
@@ -18,42 +20,77 @@
 namespace fs = std::filesystem;
 using json = nlohmann::json;
 
+struct ImageAutoUnload {
+    Image& image;
+
+    explicit ImageAutoUnload(Image& value)
+        : image(value) {}
+
+    ~ImageAutoUnload() {
+        if (image.data != nullptr) { UnloadImage(image); }
+    }
+
+    ImageAutoUnload(const ImageAutoUnload&) = delete;
+    ImageAutoUnload& operator=(const ImageAutoUnload&) = delete;
+};
+
 static inline int ceilSqrtInt(int x) {
-    int r = 0;
-    while (r * r < x) ++r;
+    if (x <= 0) return 0;
+
+    int r = static_cast<int>(std::sqrt(static_cast<double>(x)));
+    while (static_cast<long long>(r) * r < x) ++r;
+    while (r > 0 && static_cast<long long>(r - 1) * (r - 1) >= x) --r;
+
     return r;
 }
 
 static inline Rectangle normalizedUVFromIndex(int idx, int atlasCols, int atlasRows, int atlasW, int atlasH) {
-    int col = idx % atlasCols;
-    int row = idx / atlasCols;
+    if (idx < 0 || atlasCols <= 0 || atlasRows <= 0 || atlasW <= 0 || atlasH <= 0 || TILE_SIZE <= 0) { throw std::runtime_error("Invalid atlas dimensions or texture index."); }
 
-    float x = (float)(col * TILE_SIZE) / (float)atlasW;
-    float yTop = (float)(row * TILE_SIZE) / (float)atlasH;
+    const int col = idx % atlasCols;
+    const int row = idx / atlasCols;
 
-    float w = (float)TILE_SIZE / (float)atlasW;
-    float h = (float)TILE_SIZE / (float)atlasH;
+    if (row >= atlasRows) { throw std::runtime_error("Texture index is outside the atlas grid."); }
 
-    float y = 1.0f - (yTop + h);
-    return Rectangle{ x, y, w, h };
+    const float x = static_cast<float>(col * TILE_SIZE) / static_cast<float>(atlasW);
+    const float yTop = static_cast<float>(row * TILE_SIZE) / static_cast<float>(atlasH);
+    const float w = static_cast<float>(TILE_SIZE) / static_cast<float>(atlasW);
+    const float h = static_cast<float>(TILE_SIZE) / static_cast<float>(atlasH);
+
+    return Rectangle{x, 1.0f - (yTop + h), w, h};
 }
 
 static inline uint64_t fnv1a64(const uint8_t* data, size_t n) {
+    if (data == nullptr && n != 0) { throw std::runtime_error("Cannot hash a null pixel buffer."); }
+
     uint64_t h = 1469598103934665603ull;
     for (size_t i = 0; i < n; ++i) {
-        h ^= (uint64_t)data[i];
+        h ^= static_cast<uint64_t>(data[i]);
         h *= 1099511628211ull;
     }
     return h;
 }
 
-static inline uint64_t hashImagePixels(const Image& img) {
-    const uint8_t* bytes = (const uint8_t*)img.data;
-    size_t n = (size_t)img.width * (size_t)img.height * 4ull;
-    return fnv1a64(bytes, n);
+static inline uint64_t hashImagePixels(Image& img) {
+    if (img.data == nullptr || img.width <= 0 || img.height <= 0) { throw std::runtime_error("Cannot hash an invalid image."); }
+
+    if (img.format != PIXELFORMAT_UNCOMPRESSED_R8G8B8A8) { ImageFormat(&img, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8); }
+
+    if (img.data == nullptr || img.format != PIXELFORMAT_UNCOMPRESSED_R8G8B8A8) { throw std::runtime_error("Failed to convert image to RGBA8."); }
+
+    const int dataSize = GetPixelDataSize(img.width, img.height, img.format);
+    if (dataSize <= 0) { throw std::runtime_error("Raylib returned an invalid image data size."); }
+
+    const uint64_t expectedSize = static_cast<uint64_t>(img.width) * static_cast<uint64_t>(img.height) * 4ull;
+
+    if (expectedSize != static_cast<uint64_t>(dataSize)) { throw std::runtime_error("RGBA image size does not match its dimensions."); }
+
+    return fnv1a64(static_cast<const uint8_t*>(img.data), static_cast<size_t>(dataSize));
 }
 
 static inline void writeAtlasUVJson(const BlocksDefaults& blocksDefaults, const fs::path& outPath) {
+    if (outPath.empty()) { throw std::runtime_error("Atlas UV output path is empty."); }
+
     json j;
     j["version"] = 1;
     j["atlasCols"] = blocksDefaults.atlasCols;
@@ -62,296 +99,326 @@ static inline void writeAtlasUVJson(const BlocksDefaults& blocksDefaults, const 
     j["atlasH"] = blocksDefaults.atlasH;
 
     json blocksJson = json::object();
-    for (auto& [id, b] : blocksDefaults.loaded.blocks) {
-        json fb = json::object();
-        for (int fi = 0; fi < 6; ++fi) {
-            const Rectangle& uv = b.faces[fi].uv;
-            fb[FaceNames[fi]] = {
-                {"x", uv.x},
-                {"y", uv.y},
-                {"w", uv.width},
-                {"h", uv.height}
-            };
-        }
-        blocksJson[std::to_string(id)] = fb;
-    }
-    j["blocks"] = blocksJson;
 
-    fs::create_directories(outPath.parent_path());
-    std::ofstream f(outPath);
-    if (!f) throw std::runtime_error("Cannot write UV json: " + outPath.string());
-    f << j.dump(2);
+    for (const auto& [id, block] : blocksDefaults.loaded.blocks) {
+        json facesJson = json::object();
+
+        for (int fi = 0; fi < 6; ++fi) {
+            const Rectangle& uv = block.faces[fi].uv;
+
+            if (!std::isfinite(uv.x) || !std::isfinite(uv.y) || !std::isfinite(uv.width) || !std::isfinite(uv.height) || uv.width <= 0.0f || uv.height <= 0.0f) {
+                throw std::runtime_error("Cannot save invalid atlas UV coordinates.");
+            }
+
+            facesJson[FaceNames[fi]] = {{"x", uv.x}, {"y", uv.y}, {"w", uv.width}, {"h", uv.height}};
+        }
+
+        blocksJson[std::to_string(id)] = std::move(facesJson);
+    }
+
+    j["blocks"] = std::move(blocksJson);
+
+    const fs::path parent = outPath.parent_path();
+    if (!parent.empty()) { fs::create_directories(parent); }
+
+    std::ofstream file(outPath);
+    if (!file.is_open()) { throw std::runtime_error("Cannot write UV JSON: " + outPath.string()); }
+
+    file << j.dump(2);
+    file.flush();
+
+    if (!file.good()) { throw std::runtime_error("Failed while writing UV JSON: " + outPath.string()); }
 }
 
 static inline bool loadAtlasUVJson(BlocksDefaults& blocksDefaults, const fs::path& uvPath) {
-    if (!fs::exists(uvPath) || !fs::is_regular_file(uvPath)) return false;
-
-    std::string raw = IOutils::readTextFile(uvPath);
-    if (raw.find_first_not_of(" \t\r\n") == std::string::npos) return false;
-
-    json j;
     try {
-        j = json::parse(raw);
-    } catch (...) {
-        return false;
-    }
+        if (uvPath.empty() || !fs::exists(uvPath) || !fs::is_regular_file(uvPath)) { return false; }
 
-    if (!j.is_object()) return false;
+        const std::string raw = IOutils::readTextFile(uvPath);
+        if (raw.find_first_not_of(" \t\r\n") == std::string::npos) { return false; }
 
-    int atlasCols = j.value("atlasCols", 0);
-    int atlasRows = j.value("atlasRows", 0);
-    int atlasW = j.value("atlasW", 0);
-    int atlasH = j.value("atlasH", 0);
-    if (atlasCols <= 0 || atlasRows <= 0 || atlasW <= 0 || atlasH <= 0) return false;
+        const json j = json::parse(raw);
+        if (!j.is_object() || !j.contains("blocks") || !j["blocks"].is_object()) { return false; }
 
-    if (!j.contains("blocks") || !j["blocks"].is_object()) return false;
+        const int atlasCols = j.at("atlasCols").get<int>();
+        const int atlasRows = j.at("atlasRows").get<int>();
+        const int atlasW = j.at("atlasW").get<int>();
+        const int atlasH = j.at("atlasH").get<int>();
 
-    for (uint16_t id : blocksDefaults.sortedIds) {
-        auto it = j["blocks"].find(std::to_string(id));
-        if (it == j["blocks"].end() || !it->is_object()) return false;
+        if (atlasCols <= 0 || atlasRows <= 0 || atlasW <= 0 || atlasH <= 0 || atlasCols > std::numeric_limits<uint16_t>::max() || atlasRows > std::numeric_limits<uint16_t>::max()) { return false; }
 
-        const json& bj = *it;
+        std::vector<std::pair<uint16_t, std::array<Rectangle, 6>>> pending;
 
-        for (int fi = 0; fi < 6; ++fi) {
-            const char* key = FaceNames[fi];
-            if (!bj.contains(key) || !bj[key].is_object()) return false;
+        for (uint16_t id : blocksDefaults.sortedIds) {
+            auto blockIt = j["blocks"].find(std::to_string(id));
+            if (blockIt == j["blocks"].end() || !blockIt->is_object()) { return false; }
 
-            const json& u = bj[key];
-            if (!u.contains("x") || !u.contains("y") || !u.contains("w") || !u.contains("h")) return false;
+            std::array<Rectangle, 6> faces{};
 
-            blocksDefaults.loaded.blocks[id].faces[fi].uv = Rectangle{
-                u.at("x").get<float>(),
-                u.at("y").get<float>(),
-                u.at("w").get<float>(),
-                u.at("h").get<float>()
-            };
+            for (int fi = 0; fi < 6; ++fi) {
+                const char* key = FaceNames[fi];
+                if (!blockIt->contains(key) || !(*blockIt)[key].is_object()) { return false; }
+
+                const json& uvJson = (*blockIt)[key];
+                Rectangle uv{uvJson.at("x").get<float>(), uvJson.at("y").get<float>(), uvJson.at("w").get<float>(), uvJson.at("h").get<float>()};
+
+                if (!std::isfinite(uv.x) || !std::isfinite(uv.y) || !std::isfinite(uv.width) || !std::isfinite(uv.height) || uv.width <= 0.0f || uv.height <= 0.0f) { return false; }
+
+                faces[fi] = uv;
+            }
+
+            pending.emplace_back(id, faces);
         }
-    }
 
-    blocksDefaults.atlasCols = (uint16_t)atlasCols;
-    blocksDefaults.atlasRows = (uint16_t)atlasRows;
-    blocksDefaults.atlasW = atlasW;
-    blocksDefaults.atlasH = atlasH;
-    return true;
+        for (const auto& [id, faces] : pending) {
+            auto blockIt = blocksDefaults.loaded.blocks.find(id);
+            if (blockIt == blocksDefaults.loaded.blocks.end()) { return false; }
+
+            for (int fi = 0; fi < 6; ++fi) { blockIt->second.faces[fi].uv = faces[fi]; }
+        }
+
+        blocksDefaults.atlasCols = static_cast<uint16_t>(atlasCols);
+        blocksDefaults.atlasRows = static_cast<uint16_t>(atlasRows);
+        blocksDefaults.atlasW = atlasW;
+        blocksDefaults.atlasH = atlasH;
+
+        return true;
+    } catch (...) { return false; }
 }
 
 static inline void saveAtlasPNG(const BlocksDefaults& blocksDefaults, const fs::path& outPngPath) {
-    if (!blocksDefaults.atlasReady || blocksDefaults.atlasRT.id == 0) return;
+    if (outPngPath.empty()) { throw std::runtime_error("Atlas PNG output path is empty."); }
 
-    fs::create_directories(outPngPath.parent_path());
+    if (!blocksDefaults.atlasReady || blocksDefaults.atlasRT.id == 0 || blocksDefaults.atlasRT.texture.id == 0) { throw std::runtime_error("Cannot save an atlas that is not ready."); }
+
+    const fs::path parent = outPngPath.parent_path();
+    if (!parent.empty()) { fs::create_directories(parent); }
 
     Image img = LoadImageFromTexture(blocksDefaults.atlasRT.texture);
-    if (img.width <= 0 || img.height <= 0) {
-        UnloadImage(img);
-        throw std::runtime_error("Failed to convert atlas texture to image.");
-    }
+    ImageAutoUnload imageGuard(img);
 
-    bool ok = ExportImage(img, outPngPath.string().c_str());
-    UnloadImage(img);
+    if (img.data == nullptr || img.width <= 0 || img.height <= 0) { throw std::runtime_error("Failed to convert atlas texture to an image."); }
 
-    if (!ok) throw std::runtime_error("Failed to export atlas PNG: " + outPngPath.string());
+    if (!ExportImage(img, outPngPath.string().c_str())) { throw std::runtime_error("Failed to export atlas PNG: " + outPngPath.string()); }
 }
 
-static inline void buildAtlasForBlocksImpl(
-    BlocksDefaults& blocksDefaults,
-    const fs::path& texturesDir,
-    const fs::path& atlasPngOut,
-    const fs::path& atlasUvOut
-) {
+static inline void buildAtlasForBlocksImpl(BlocksDefaults& blocksDefaults, const fs::path& texturesDir, const fs::path& atlasPngOut, const fs::path& atlasUvOut) {
+    if (TILE_SIZE <= 0) { throw std::runtime_error("TILE_SIZE must be greater than zero."); }
+
     unloadAtlas(blocksDefaults);
 
-    constexpr std::array<int, 6> faceOrder = { TOP, BOTTOM, EAST, WEST, NORTH, SOUTH };
+    try {
+        constexpr std::array<int, 6> faceOrder = {TOP, BOTTOM, EAST, WEST, NORTH, SOUTH};
 
-    std::unordered_map<uint64_t, int> hashToAtlasIndex;
-    std::unordered_map<std::string, int> nameToAtlasIndex;
-    std::vector<std::string> orderedAtlasTextureNames;
+        std::unordered_map<uint64_t, int> hashToAtlasIndex;
+        std::unordered_map<std::string, int> nameToAtlasIndex;
+        std::vector<std::string> orderedAtlasTextureNames;
 
-    for (uint16_t id : blocksDefaults.sortedIds) {
-        auto it = blocksDefaults.loaded.blocks.find(id);
-        if (it == blocksDefaults.loaded.blocks.end()) continue;
-        BlockReference& b = it->second;
+        for (uint16_t id : blocksDefaults.sortedIds) {
+            auto blockIt = blocksDefaults.loaded.blocks.find(id);
+            if (blockIt == blocksDefaults.loaded.blocks.end()) { throw std::runtime_error("Block ID is missing from loaded blocks: " + std::to_string(id)); }
 
-        for (int fi : faceOrder) {
-            const std::string& texNameRaw = b.faces[fi].textureName;
-            if (texNameRaw.empty()) continue;
+            BlockReference& block = blockIt->second;
 
-            // IMPORTANT: on stocke la clé "telle quelle" pour garder la logique actuelle
-            // (mais le chargement doit gérer l'extension).
-            if (nameToAtlasIndex.find(texNameRaw) != nameToAtlasIndex.end()) continue;
+            for (int fi : faceOrder) {
+                const std::string& texNameRaw = block.faces[fi].textureName;
+                if (texNameRaw.empty()) continue;
 
-            // ✅ CORRECTIF: si textureName n'a pas d'extension => ajouter ".png"
-            fs::path texPath = texturesDir / texNameRaw;
-            if (texPath.extension().empty()) {
-                texPath += ".png";
+                if (nameToAtlasIndex.find(texNameRaw) != nameToAtlasIndex.end()) { continue; }
+
+                fs::path texPath = texturesDir / texNameRaw;
+                if (texPath.extension().empty()) { texPath += ".png"; }
+
+                Image img = IOutils::loadImageOrFallback(texPath);
+                ImageAutoUnload imageGuard(img);
+
+                if (img.data == nullptr || img.width <= 0 || img.height <= 0) { throw std::runtime_error("Failed to load texture image: " + texPath.string()); }
+
+                if (img.width != TILE_SIZE || img.height != TILE_SIZE) {
+                    throw std::runtime_error("Texture has unexpected dimensions after ensureTileSize: " + texPath.string() + " (" + std::to_string(img.width) + "x" + std::to_string(img.height) +
+                                             ", expected " + std::to_string(TILE_SIZE) + "x" + std::to_string(TILE_SIZE) + ")");
+                }
+
+                const uint64_t hash = hashImagePixels(img);
+
+                int atlasIdx;
+                auto hit = hashToAtlasIndex.find(hash);
+
+                if (hit == hashToAtlasIndex.end()) {
+                    atlasIdx = static_cast<int>(orderedAtlasTextureNames.size());
+                    hashToAtlasIndex.emplace(hash, atlasIdx);
+                    orderedAtlasTextureNames.push_back(texNameRaw);
+                } else {
+                    atlasIdx = hit->second;
+                }
+
+                nameToAtlasIndex.emplace(texNameRaw, atlasIdx);
             }
-
-            Image img = IOutils::loadImageOrFallback(texPath);
-            if (img.width <= 0 || img.height <= 0) {
-                throw std::runtime_error("Failed to load texture image: " + texPath.string());
-            }
-
-            uint64_t h = hashImagePixels(img);
-            UnloadImage(img);
-
-            int atlasIdx;
-            auto hit = hashToAtlasIndex.find(h);
-            if (hit == hashToAtlasIndex.end()) {
-                atlasIdx = (int)orderedAtlasTextureNames.size();
-                hashToAtlasIndex.emplace(h, atlasIdx);
-                orderedAtlasTextureNames.push_back(texNameRaw);
-            } else {
-                atlasIdx = hit->second;
-            }
-
-            nameToAtlasIndex.emplace(texNameRaw, atlasIdx);
         }
-    }
 
-    const int N = (int)orderedAtlasTextureNames.size();
+        if (orderedAtlasTextureNames.size() > static_cast<size_t>(std::numeric_limits<int>::max())) { throw std::runtime_error("Too many atlas textures."); }
 
-    if (N == 0) {
-        blocksDefaults.atlasCols = 1;
-        blocksDefaults.atlasRows = 1;
-        blocksDefaults.atlasW = TILE_SIZE;
-        blocksDefaults.atlasH = TILE_SIZE;
+        const int N = static_cast<int>(orderedAtlasTextureNames.size());
 
-        blocksDefaults.atlasRT = LoadRenderTexture(blocksDefaults.atlasW, blocksDefaults.atlasH);
+        if (N == 0) {
+            blocksDefaults.atlasCols = 1;
+            blocksDefaults.atlasRows = 1;
+            blocksDefaults.atlasW = TILE_SIZE;
+            blocksDefaults.atlasH = TILE_SIZE;
+
+            blocksDefaults.atlasRT = LoadRenderTexture(TILE_SIZE, TILE_SIZE);
+            if (blocksDefaults.atlasRT.id == 0 || blocksDefaults.atlasRT.texture.id == 0) {
+                blocksDefaults.atlasRT = RenderTexture2D{};
+                throw std::runtime_error("Failed to create dummy atlas.");
+            }
+
+            blocksDefaults.atlasTex = blocksDefaults.atlasRT.texture;
+            blocksDefaults.atlasReady = true;
+
+            for (uint16_t id : blocksDefaults.sortedIds) {
+                auto blockIt = blocksDefaults.loaded.blocks.find(id);
+                if (blockIt == blocksDefaults.loaded.blocks.end()) { throw std::runtime_error("Block ID is missing from loaded blocks: " + std::to_string(id)); }
+
+                for (int fi : faceOrder) { blockIt->second.faces[fi].uv = normalizedUVFromIndex(0, 1, 1, TILE_SIZE, TILE_SIZE); }
+            }
+
+            saveAtlasPNG(blocksDefaults, atlasPngOut);
+            writeAtlasUVJson(blocksDefaults, atlasUvOut);
+
+            std::cout << "Atlas built: unique textures=0 (dummy 1 tile)\n";
+            return;
+        }
+
+        const int atlasCols = ceilSqrtInt(N);
+        const int atlasRows = (N + atlasCols - 1) / atlasCols;
+
+        const long long atlasW64 = static_cast<long long>(atlasCols) * TILE_SIZE;
+        const long long atlasH64 = static_cast<long long>(atlasRows) * TILE_SIZE;
+
+        if (atlasW64 <= 0 || atlasH64 <= 0 || atlasW64 > std::numeric_limits<int>::max() || atlasH64 > std::numeric_limits<int>::max() || atlasCols > std::numeric_limits<uint16_t>::max() ||
+            atlasRows > std::numeric_limits<uint16_t>::max()) {
+            throw std::runtime_error("Atlas dimensions exceed supported limits.");
+        }
+
+        const int atlasW = static_cast<int>(atlasW64);
+        const int atlasH = static_cast<int>(atlasH64);
+
+        blocksDefaults.atlasCols = static_cast<uint16_t>(atlasCols);
+        blocksDefaults.atlasRows = static_cast<uint16_t>(atlasRows);
+        blocksDefaults.atlasW = atlasW;
+        blocksDefaults.atlasH = atlasH;
+
+        blocksDefaults.atlasRT = LoadRenderTexture(atlasW, atlasH);
+        if (blocksDefaults.atlasRT.id == 0 || blocksDefaults.atlasRT.texture.id == 0) {
+            blocksDefaults.atlasRT = RenderTexture2D{};
+            throw std::runtime_error("Failed to create atlas render texture.");
+        }
+
         blocksDefaults.atlasTex = blocksDefaults.atlasRT.texture;
         blocksDefaults.atlasReady = true;
 
+        BeginTextureMode(blocksDefaults.atlasRT);
+        try {
+            ClearBackground(Color{0, 0, 0, 0});
+
+            for (int i = 0; i < N; ++i) {
+                const std::string& texNameRaw = orderedAtlasTextureNames[static_cast<size_t>(i)];
+
+                fs::path path = texturesDir / texNameRaw;
+                if (path.extension().empty()) { path += ".png"; }
+
+                Texture2D tex = IOutils::loadTextureOrFallback(path);
+                if (tex.id == 0 || tex.width <= 0 || tex.height <= 0) {
+                    if (tex.id != 0) UnloadTexture(tex);
+                    throw std::runtime_error("Failed to load texture: " + path.string());
+                }
+
+                try {
+                    blocksDefaults.atlasTextures.push_back(tex);
+                } catch (...) {
+                    UnloadTexture(tex);
+                    throw;
+                }
+
+                const int col = i % atlasCols;
+                const int row = i / atlasCols;
+
+                const Rectangle src{0.0f, 0.0f, static_cast<float>(tex.width), static_cast<float>(tex.height)};
+                const Rectangle dst{static_cast<float>(col * TILE_SIZE), static_cast<float>(row * TILE_SIZE), static_cast<float>(TILE_SIZE), static_cast<float>(TILE_SIZE)};
+
+                DrawTexturePro(tex, src, dst, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
+            }
+        } catch (...) {
+            EndTextureMode();
+            throw;
+        }
+        EndTextureMode();
+
         for (uint16_t id : blocksDefaults.sortedIds) {
-            BlockReference& b = blocksDefaults.loaded.blocks[id];
+            auto blockIt = blocksDefaults.loaded.blocks.find(id);
+            if (blockIt == blocksDefaults.loaded.blocks.end()) { throw std::runtime_error("Block ID is missing from loaded blocks: " + std::to_string(id)); }
+
+            BlockReference& block = blockIt->second;
+
             for (int fi : faceOrder) {
-                b.faces[fi].uv = normalizedUVFromIndex(0, 1, 1, blocksDefaults.atlasW, blocksDefaults.atlasH);
+                const std::string& texNameRaw = block.faces[fi].textureName;
+                if (texNameRaw.empty()) continue;
+
+                auto it = nameToAtlasIndex.find(texNameRaw);
+                if (it == nameToAtlasIndex.end()) { throw std::runtime_error("Missing atlas index for texture: " + texNameRaw); }
+
+                block.faces[fi].uv = normalizedUVFromIndex(it->second, atlasCols, atlasRows, atlasW, atlasH);
             }
         }
 
         saveAtlasPNG(blocksDefaults, atlasPngOut);
         writeAtlasUVJson(blocksDefaults, atlasUvOut);
 
-        std::cout << "Atlas built: unique textures=0 (dummy 1 tile)\n";
-        return;
+        std::cout << "Atlas built: unique textures=" << N << " atlasCols=" << atlasCols << " atlasRows=" << atlasRows << " atlasSize=" << atlasW << "x" << atlasH << "\n";
+    } catch (...) {
+        unloadAtlas(blocksDefaults);
+        throw;
     }
-
-    int atlasCols = ceilSqrtInt(N);
-    int atlasRows = (N + atlasCols - 1) / atlasCols;
-
-    int atlasW = atlasCols * TILE_SIZE;
-    int atlasH = atlasRows * TILE_SIZE;
-
-    blocksDefaults.atlasCols = (uint16_t)atlasCols;
-    blocksDefaults.atlasRows = (uint16_t)atlasRows;
-    blocksDefaults.atlasW = atlasW;
-    blocksDefaults.atlasH = atlasH;
-
-    blocksDefaults.atlasRT = LoadRenderTexture(atlasW, atlasH);
-    blocksDefaults.atlasTex = blocksDefaults.atlasRT.texture;
-    blocksDefaults.atlasReady = true;
-
-    BeginTextureMode(blocksDefaults.atlasRT);
-    ClearBackground({0, 0, 0, 0});
-
-    for (int i = 0; i < N; ++i) {
-        const std::string& texNameRaw = orderedAtlasTextureNames[i];
-
-        // ✅ CORRECTIF (idem) lors du draw: gestion extension éventuelle
-        fs::path p = texturesDir / texNameRaw;
-        if (p.extension().empty()) {
-            p += ".png";
-        }
-
-        Texture2D tex = IOutils::loadTextureOrFallback(p);
-        if (tex.id == 0) {
-            EndTextureMode();
-            throw std::runtime_error("Failed to load texture: " + p.string());
-        }
-
-        blocksDefaults.atlasTextures.push_back(tex);
-
-        int col = i % atlasCols;
-        int row = i / atlasCols;
-
-        Rectangle src{ 0.0f, 0.0f, (float)tex.width, (float)tex.height };
-        Rectangle dst{ (float)(col * TILE_SIZE), (float)(row * TILE_SIZE), (float)TILE_SIZE, (float)TILE_SIZE };
-
-        DrawTexturePro(tex, src, dst, Vector2{0, 0}, 0.0f, WHITE);
-    }
-
-    EndTextureMode();
-
-    for (uint16_t id : blocksDefaults.sortedIds) {
-        BlockReference& b = blocksDefaults.loaded.blocks[id];
-        for (int fi : faceOrder) {
-            const std::string& texNameRaw = b.faces[fi].textureName;
-            auto it = nameToAtlasIndex.find(texNameRaw);
-            if (it == nameToAtlasIndex.end()) {
-                throw std::runtime_error("Missing atlas index for texture: " + texNameRaw);
-            }
-            b.faces[fi].uv = normalizedUVFromIndex(it->second, atlasCols, atlasRows, atlasW, atlasH);
-        }
-    }
-
-    saveAtlasPNG(blocksDefaults, atlasPngOut);
-    writeAtlasUVJson(blocksDefaults, atlasUvOut);
-
-    std::cout << "Atlas built: unique textures=" << N
-              << " atlasCols=" << atlasCols
-              << " atlasRows=" << atlasRows
-              << " atlasSize=" << atlasW << "x" << atlasH << "\n";
 }
 
-static inline bool tryLoadSavedAtlasImpl(
-    BlocksDefaults& blocksDefaults,
-    const fs::path& atlasPngPath,
-    const fs::path& atlasUvPath
-) {
-    if (!fs::exists(atlasPngPath) || !fs::exists(atlasUvPath)) return false;
+static inline bool tryLoadSavedAtlasImpl(BlocksDefaults& blocksDefaults, const fs::path& atlasPngPath, const fs::path& atlasUvPath) {
+    try {
+        if (!fs::exists(atlasPngPath) || !fs::is_regular_file(atlasPngPath) || !fs::exists(atlasUvPath) || !fs::is_regular_file(atlasUvPath)) { return false; }
 
-    unloadAtlas(blocksDefaults);
+        unloadAtlas(blocksDefaults);
 
-    Image img = LoadImage(atlasPngPath.string().c_str());
-    if (img.width <= 0 || img.height <= 0) {
-        UnloadImage(img);
+        Image img = LoadImage(atlasPngPath.string().c_str());
+        ImageAutoUnload imageGuard(img);
+
+        if (img.data == nullptr || img.width <= 0 || img.height <= 0) { return false; }
+
+        const int imageW = img.width;
+        const int imageH = img.height;
+
+        Texture2D texture = LoadTextureFromImage(img);
+        if (texture.id == 0) { return false; }
+
+        blocksDefaults.atlasW = imageW;
+        blocksDefaults.atlasH = imageH;
+        blocksDefaults.atlasTex = texture;
+        blocksDefaults.atlasReady = true;
+        blocksDefaults.atlasRT = RenderTexture2D{};
+
+        const bool uvLoaded = loadAtlasUVJson(blocksDefaults, atlasUvPath);
+        if (!uvLoaded || blocksDefaults.atlasW != imageW || blocksDefaults.atlasH != imageH) {
+            unloadAtlas(blocksDefaults);
+            return false;
+        }
+
+        return true;
+    } catch (...) {
+        unloadAtlas(blocksDefaults);
         return false;
     }
-
-    blocksDefaults.atlasW = img.width;
-    blocksDefaults.atlasH = img.height;
-    blocksDefaults.atlasTex = LoadTextureFromImage(img);
-    UnloadImage(img);
-
-    if (blocksDefaults.atlasTex.id == 0) {
-        blocksDefaults.atlasTex = Texture2D{};
-        return false;
-    }
-
-    blocksDefaults.atlasReady = true;
-    blocksDefaults.atlasRT = RenderTexture2D{};
-
-    bool ok = loadAtlasUVJson(blocksDefaults, atlasUvPath);
-    if (!ok) {
-        if (blocksDefaults.atlasTex.id != 0) UnloadTexture(blocksDefaults.atlasTex);
-        blocksDefaults.atlasTex = Texture2D{};
-        blocksDefaults.atlasReady = false;
-        return false;
-    }
-
-    return true;
 }
 
-void buildAtlasForBlocks(
-    BlocksDefaults& blocksDefaults,
-    const fs::path& texturesDir,
-    const fs::path& atlasPngOut,
-    const fs::path& atlasUvOut
-) {
+void buildAtlasForBlocks(BlocksDefaults& blocksDefaults, const fs::path& texturesDir, const fs::path& atlasPngOut, const fs::path& atlasUvOut) {
     buildAtlasForBlocksImpl(blocksDefaults, texturesDir, atlasPngOut, atlasUvOut);
 }
 
-bool tryLoadSavedAtlas(
-    BlocksDefaults& blocksDefaults,
-    const fs::path& atlasPngPath,
-    const fs::path& atlasUvPath
-) {
-    return tryLoadSavedAtlasImpl(blocksDefaults, atlasPngPath, atlasUvPath);
-}
+bool tryLoadSavedAtlas(BlocksDefaults& blocksDefaults, const fs::path& atlasPngPath, const fs::path& atlasUvPath) { return tryLoadSavedAtlasImpl(blocksDefaults, atlasPngPath, atlasUvPath); }

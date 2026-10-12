@@ -55,7 +55,7 @@ enum class BlockType : uint8_t {
 
 // represents the block material (used for rendering and for gameplay)
 enum BlockMaterial {
-    DIRT,
+    SAND,
     STONE,
     WOOD,
     VEGETAL

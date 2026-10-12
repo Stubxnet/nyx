@@ -1,0 +1,15 @@
+{
+  "id": 11,
+  "displayName": "Desert Gravel",
+  "resistance": 30,
+  "type": "FULL",
+  "material": "SAND",
+  "faces": {
+    "top": "desertgravel",
+    "bottom": "desertgravel",
+    "east": "desertgravel",
+    "west": "desertgravel",
+    "north": "desertgravel",
+    "south": "desertgravel"
+  }
+}

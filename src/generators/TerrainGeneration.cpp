@@ -4,8 +4,10 @@
 #include "../../include/FastNoiseLite.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 
 namespace TerrainGeneration {
 
@@ -19,8 +21,10 @@ struct NoiseContext {
     FastNoiseLite erosion;
     FastNoiseLite weirdness;
     FastNoiseLite detail;
+
     FastNoiseLite oceanDepth;
     FastNoiseLite oceanDetail;
+
     FastNoiseLite warpX;
     FastNoiseLite warpZ;
 };
@@ -37,6 +41,8 @@ struct TerrainSample {
     float ridgeMask = 0.0f;
     float valleyMask = 0.0f;
 
+    float surfaceY = 0.0f;
+
     float height01 = 0.0f;
 
     bool ocean = false;
@@ -50,6 +56,10 @@ namespace TerrainGeneration {
 namespace {
 
 NoiseContext g_noise;
+
+// -----------------------------------------------------------------------------
+// math helpers
+// -----------------------------------------------------------------------------
 
 float Clamp01(float value) { return std::clamp(value, 0.0f, 1.0f); }
 
@@ -73,9 +83,41 @@ float RemapLinearClamped(float value, float fromMin, float fromMax, float toMin,
     return toMin + (toMax - toMin) * t;
 }
 
-float GetSeaHeight01() { return RemapLinearClamped(static_cast<float>(SEA_LEVEL), static_cast<float>(MIN_SURFACE_Y), static_cast<float>(MAX_SURFACE_Y), 0.0f, 1.0f); }
+float Lerp(float a, float b, float t) { return a + (b - a) * t; }
 
-float GetTerrainRange() { return static_cast<float>(MAX_SURFACE_Y - MIN_SURFACE_Y); }
+float SmoothLerp(float a, float b, float t) { return Lerp(a, b, t * t * (3.0f - 2.0f * t)); }
+
+// -----------------------------------------------------------------------------
+// generic curve
+// -----------------------------------------------------------------------------
+
+struct CurvePoint {
+    float x;
+    float y;
+};
+
+float EvaluateCurve(const std::array<CurvePoint, 9>& points, float value) {
+    if (value <= points.front().x) { return points.front().y; }
+
+    if (value >= points.back().x) { return points.back().y; }
+
+    for (std::size_t i = 1; i < points.size(); ++i) {
+        const CurvePoint& left = points[i - 1];
+        const CurvePoint& right = points[i];
+
+        if (value <= right.x) {
+            const float t = Clamp01((value - left.x) / (right.x - left.x));
+
+            return SmoothLerp(left.y, right.y, t);
+        }
+    }
+
+    return points.back().y;
+}
+
+// -----------------------------------------------------------------------------
+// seed and noise conf
+// -----------------------------------------------------------------------------
 
 uint32_t HashSeed(uint32_t seed, uint32_t stream) {
     uint32_t value = seed ^ (stream + 0x9E3779B9u);
@@ -101,102 +143,171 @@ void ConfigureNoise(FastNoiseLite& noise, uint32_t seed, float frequency, int oc
 
 float Sample01(const FastNoiseLite& noise, float x, float z) { return Clamp01(Remap01(noise.GetNoise(x, z))); }
 
-const Biome* SelectLandBiome(const TerrainSample& sample) {
-    const float seaHeight01 = GetSeaHeight01();
+float GetHeight01FromWorldY(float worldY) { return RemapLinearClamped(worldY, static_cast<float>(MIN_SURFACE_Y), static_cast<float>(MAX_SURFACE_Y), 0.0f, 1.0f); }
 
-    const float terrainRange = GetTerrainRange();
+// -----------------------------------------------------------------------------
+// continentalness
+// -----------------------------------------------------------------------------
 
-    constexpr float beachBelowBlocks = 4.0f;
-    constexpr float beachAboveBlocks = 6.0f;
+float CalculateContinentalBaseHeight(float continentalness) {
 
-    const float beachBelow = beachBelowBlocks / terrainRange;
+    static constexpr std::array<CurvePoint, 9> curve = {{{0.00f, -8.0f}, {0.20f, -6.0f}, {0.35f, -4.0f}, {0.40f, -2.0f}, {0.50f, 0.0f}, {0.60f, 8.0f}, {0.72f, 24.0f}, {0.86f, 52.0f}, {1.00f, 76.0f}}};
 
-    const float beachAbove = beachAboveBlocks / terrainRange;
-
-    const bool nearSea = sample.height01 >= seaHeight01 - beachBelow && sample.height01 <= seaHeight01 + beachAbove;
-
-    if (nearSea && sample.continentalness < COAST_END) { return &Biomes::Beach; }
-
-    if (sample.mountainMask > 0.55f) {
-        if (sample.temperature < 0.28f || sample.height01 > 0.72f) { return &Biomes::SnowPlains; }
-
-        return &Biomes::Mountains;
-    }
-
-    if (sample.temperature < 0.24f) { return &Biomes::SnowPlains; }
-
-    if (sample.temperature < 0.42f) {
-        if (sample.moisture > 0.48f) { return &Biomes::Taiga; }
-
-        return &Biomes::Plains;
-    }
-
-    if (sample.temperature > 0.68f && sample.moisture < 0.30f) {
-        if (sample.ridgeMask > 0.60f && sample.erosion > 0.48f) { return &Biomes::Badlands; }
-
-        return &Biomes::Desert;
-    }
-
-    if (sample.moisture > 0.64f) { return &Biomes::Forest; }
-
-    return &Biomes::Plains;
+    return EvaluateCurve(curve, continentalness);
 }
 
-float CalculateLandHeight(const TerrainSample& sample, float seaHeight01, float detail) {
-    const float continentalLand = SmoothStep(SEA_CONTINENTALNESS, 0.88f, sample.continentalness);
+// -----------------------------------------------------------------------------
+// ocean
+// -----------------------------------------------------------------------------
 
-    const float lowErosion = InverseSmoothStep(0.20f, 0.75f, sample.erosion);
-
-    const float erosionHeight = lowErosion * 0.025f;
-
-    const float ridgeValue = std::abs(sample.weirdness * 2.0f - 1.0f);
-
-    const float ridgeMask = SmoothStep(0.55f, 0.88f, ridgeValue);
-
-    const float centralWeirdness = 1.0f - ridgeValue;
-
-    const float valleyMask = SmoothStep(0.30f, 0.85f, centralWeirdness);
-
-    const float mountainClimate = 0.45f * continentalLand + 0.30f * lowErosion + 0.25f * ridgeMask;
-
-    const float mountainMask = continentalLand * SmoothStep(0.58f, 0.78f, mountainClimate);
-
-    const float mountainHeight = mountainMask * 0.22f;
-
-    const float valleyDepth = valleyMask * mountainMask * 0.050f;
-
-    const float continentalHeight = RemapLinearClamped(sample.continentalness, SEA_CONTINENTALNESS, 0.88f, 0.0f, 0.115f);
-
-    const float localDetail = detail * 0.018f;
-
-    const float climateVariation = (sample.moisture - 0.5f) * 0.008f + (0.5f - sample.erosion) * 0.010f;
-
-    const float result = seaHeight01 + continentalHeight * continentalLand + erosionHeight * continentalLand + mountainHeight - valleyDepth + localDetail + climateVariation;
-
-    return Clamp01(result);
-}
-
-float CalculateOceanHeight(float seaHeight01, float x, float z) {
+float CalculateOceanDepth(float x, float z) {
     const float basinNoise = Sample01(g_noise.oceanDepth, x, z);
 
     const float detailNoise = g_noise.oceanDetail.GetNoise(x, z);
 
-    const float basinMask = SmoothStep(0.20f, 0.85f, basinNoise);
+    const float basinDepth = basinNoise * MAX_OCEAN_DEPTH_BLOCKS;
 
-    const float terrainRange = GetTerrainRange();
+    const float detailDepth = detailNoise * OCEAN_DETAIL_BLOCKS;
 
-    const float availableDepth = static_cast<float>(SEA_LEVEL - MIN_SURFACE_Y);
+    return std::clamp(MIN_OCEAN_DEPTH_BLOCKS + basinDepth + detailDepth,
 
-    const float maxDepth = std::max(1.0f, availableDepth * 0.90f);
-
-    const float detailAmplitude = std::min(6.0f, maxDepth * 0.10f);
-
-    const float depthBlocks = basinMask * maxDepth + detailNoise * detailAmplitude;
-
-    const float result = seaHeight01 - depthBlocks / terrainRange;
-
-    return std::clamp(result, 0.0f, seaHeight01);
+                      MIN_OCEAN_DEPTH_BLOCKS, MAX_OCEAN_DEPTH_BLOCKS);
 }
+
+float CalculateOceanHeight(float x, float z) {
+    const float depth = CalculateOceanDepth(x, z);
+
+    return static_cast<float>(SEA_LEVEL) - depth;
+}
+
+// -----------------------------------------------------------------------------
+// terrain
+// -----------------------------------------------------------------------------
+
+void CalculateTerrainMasks(TerrainSample& sample) {
+    const float continentalLand = SmoothStep(COAST_START, 0.78f, sample.continentalness);
+
+    const float inland = SmoothStep(0.48f, 0.72f, sample.continentalness);
+
+    const float ruggedness = SmoothStep(0.25f, 0.70f, 1.0f - sample.erosion);
+
+    const float peakValue = std::abs(sample.weirdness * 2.0f - 1.0f);
+
+    sample.ridgeMask = SmoothStep(0.35f, 0.78f, peakValue);
+
+    sample.valleyMask = SmoothStep(0.35f, 0.85f, 1.0f - peakValue);
+
+    sample.mountainMask = inland * ruggedness * (0.55f + 0.45f * sample.ridgeMask);
+
+    sample.landMask = SmoothStep(COAST_START, COAST_END, sample.continentalness);
+
+    (void)continentalLand;
+}
+
+float CalculateLandHeight(const TerrainSample& sample, float detail) {
+    const float baseHeight = CalculateContinentalBaseHeight(sample.continentalness);
+
+    const float inland = SmoothStep(0.48f, 0.72f, sample.continentalness);
+
+    const float ruggedness = SmoothStep(0.25f, 0.70f, 1.0f - sample.erosion);
+
+    const float peakValue = std::abs(sample.weirdness * 2.0f - 1.0f);
+
+    const float peakStrength = SmoothStep(0.35f, 0.78f, peakValue);
+
+    const float broadMountainHeight = sample.mountainMask * MOUNTAIN_HEIGHT_BLOCKS;
+
+    const float valleyDepth = sample.valleyMask * inland * ruggedness * VALLEY_DEPTH_BLOCKS;
+
+    const float climateVariation = (sample.moisture - 0.5f) * 4.0f + (0.5f - sample.erosion) * 4.0f;
+
+    const float localDetail = detail * TERRAIN_DETAIL_BLOCKS * (0.35f + 0.65f * inland);
+
+    const float peakAccent = peakStrength * ruggedness * inland * 20.0f;
+
+    return static_cast<float>(SEA_LEVEL) + baseHeight + broadMountainHeight + peakAccent - valleyDepth + climateVariation + localDetail;
+}
+
+float CalculateSurfaceHeight(const TerrainSample& sample, float x, float z, float detail) {
+    const float landHeight = CalculateLandHeight(sample, detail);
+
+    const float oceanHeight = CalculateOceanHeight(x, z);
+
+    const float oceanBlend = InverseSmoothStep(COAST_START, COAST_END, sample.continentalness);
+
+    float surfaceY = Lerp(landHeight, oceanHeight, oceanBlend);
+
+    if (sample.continentalness >= COAST_END) { surfaceY = landHeight; }
+
+    if (sample.continentalness <= COAST_START) { surfaceY = oceanHeight; }
+
+    return std::clamp(surfaceY, static_cast<float>(MIN_SURFACE_Y), static_cast<float>(MAX_SURFACE_Y));
+}
+
+// -----------------------------------------------------------------------------
+// biomes
+// -----------------------------------------------------------------------------
+
+struct BiomeClimateProfile {
+    const Biome* biome;
+
+    float temperature;
+    float moisture;
+
+    float temperatureWeight;
+    float moistureWeight;
+};
+
+float ClimateDistance(const TerrainSample& sample, const BiomeClimateProfile& profile) {
+    const float temperatureDelta = sample.temperature - profile.temperature;
+
+    const float moistureDelta = sample.moisture - profile.moisture;
+
+    return temperatureDelta * temperatureDelta * profile.temperatureWeight + moistureDelta * moistureDelta * profile.moistureWeight;
+}
+
+bool IsNearSea(const TerrainSample& sample) {
+    constexpr float BEACH_BELOW_BLOCKS = 4.0f;
+    constexpr float BEACH_ABOVE_BLOCKS = 6.0f;
+
+    return sample.surfaceY >= static_cast<float>(SEA_LEVEL) - BEACH_BELOW_BLOCKS && sample.surfaceY <= static_cast<float>(SEA_LEVEL) + BEACH_ABOVE_BLOCKS;
+}
+
+const Biome* SelectLandBiome(const TerrainSample& sample) {
+    if (sample.continentalness <= COAST_END && IsNearSea(sample)) { return &Biomes::Beach; }
+
+    if (sample.mountainMask > 0.34f) {
+        if (sample.temperature < 0.28f || sample.surfaceY > 220.0f) { return &Biomes::SnowPlains; }
+
+        return &Biomes::Mountains;
+    }
+
+    if (sample.temperature > 0.66f && sample.moisture < 0.32f && sample.ridgeMask > 0.48f && sample.erosion < 0.55f) { return &Biomes::Badlands; }
+
+    static constexpr std::array<BiomeClimateProfile, 5> profiles = {{{&Biomes::SnowPlains, 0.12f, 0.48f, 1.5f, 0.65f},
+                                                                     {&Biomes::Taiga, 0.30f, 0.72f, 1.0f, 1.0f},
+                                                                     {&Biomes::Desert, 0.82f, 0.18f, 1.0f, 1.25f},
+                                                                     {&Biomes::Forest, 0.55f, 0.76f, 0.85f, 1.0f},
+                                                                     {&Biomes::Plains, 0.50f, 0.45f, 0.70f, 0.70f}}};
+
+    const Biome* selectedBiome = &Biomes::Plains;
+    float bestDistance = std::numeric_limits<float>::max();
+
+    for (const BiomeClimateProfile& profile : profiles) {
+        const float distance = ClimateDistance(sample, profile);
+
+        if (distance < bestDistance) {
+            bestDistance = distance;
+            selectedBiome = profile.biome;
+        }
+    }
+
+    return selectedBiome;
+}
+
+// -----------------------------------------------------------------------------
+// public sampling
+// -----------------------------------------------------------------------------
 
 } // namespace
 
@@ -221,7 +332,7 @@ void Configure(uint32_t seed) {
 
     ConfigureNoise(g_noise.oceanDepth, HashSeed(seed, 8), OCEAN_DEPTH_FREQUENCY, 4);
 
-    ConfigureNoise(g_noise.oceanDetail, HashSeed(seed, 9), OCEAN_DETAIL_FREQUENCY, 4);
+    ConfigureNoise(g_noise.oceanDetail, HashSeed(seed, 9), OCEAN_DETAIL_FREQUENCY, 3);
 
     g_noise.initialized = true;
 }
@@ -261,39 +372,13 @@ TerrainSample Sample(int64_t worldX, int64_t worldZ) {
 
     sample.weirdness = Sample01(g_noise.weirdness, x, z);
 
-    // Décision unique et cohérente.
-    // La hauteur et le biome utilisent cette même classification.
-    sample.ocean = sample.continentalness < SEA_CONTINENTALNESS;
+    CalculateTerrainMasks(sample);
 
-    sample.landMask = SmoothStep(SEA_CONTINENTALNESS - 0.08f, SEA_CONTINENTALNESS + 0.10f, sample.continentalness);
+    sample.surfaceY = CalculateSurfaceHeight(sample, x, z, detail);
 
-    const float seaHeight01 = GetSeaHeight01();
+    sample.height01 = GetHeight01FromWorldY(sample.surfaceY);
 
-    const float ridgeValue = std::abs(sample.weirdness * 2.0f - 1.0f);
-
-    sample.ridgeMask = SmoothStep(0.55f, 0.88f, ridgeValue);
-
-    sample.valleyMask = SmoothStep(0.30f, 0.85f, 1.0f - ridgeValue);
-
-    const float lowErosion = InverseSmoothStep(0.20f, 0.75f, sample.erosion);
-
-    const float continentalLand = SmoothStep(SEA_CONTINENTALNESS, 0.88f, sample.continentalness);
-
-    const float mountainClimate = 0.45f * continentalLand + 0.30f * lowErosion + 0.25f * sample.ridgeMask;
-
-    sample.mountainMask = continentalLand * SmoothStep(0.58f, 0.78f, mountainClimate);
-
-    const float landHeight = CalculateLandHeight(sample, seaHeight01, detail);
-
-    const float oceanHeight = CalculateOceanHeight(seaHeight01, x, z);
-
-    if (sample.ocean) {
-        sample.height01 = oceanHeight;
-    } else {
-        sample.height01 = landHeight;
-    }
-
-    sample.height01 = Clamp01(sample.height01);
+    sample.ocean = sample.surfaceY < static_cast<float>(SEA_LEVEL) - 0.5f;
 
     if (sample.ocean) {
         sample.biome = &Biomes::Ocean;
@@ -308,11 +393,7 @@ int32_t ComputeSurfaceY(const TerrainSample& sample, int64_t worldX, int64_t wor
     (void)worldX;
     (void)worldZ;
 
-    const double terrainRange = static_cast<double>(MAX_SURFACE_Y - MIN_SURFACE_Y);
-
-    const double surface = static_cast<double>(MIN_SURFACE_Y) + static_cast<double>(sample.height01) * terrainRange;
-
-    const double clampedSurface = std::clamp(surface, static_cast<double>(MIN_SURFACE_Y), static_cast<double>(MAX_SURFACE_Y));
+    const float clampedSurface = std::clamp(sample.surfaceY, static_cast<float>(MIN_SURFACE_Y), static_cast<float>(MAX_SURFACE_Y));
 
     return static_cast<int32_t>(std::lround(clampedSurface));
 }

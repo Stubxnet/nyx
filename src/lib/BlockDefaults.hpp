@@ -36,7 +36,7 @@ struct BlockReference {
     std::string displayName;
     uint16_t resistance = 0;
     BlockType type = BlockType::FULL;
-    BlockMaterial material = BlockMaterial::DIRT;
+    BlockMaterial material = BlockMaterial::SAND;
     std::array<FaceTexture, 6> faces;
     std::optional<BlockExtra> extra;
 };

@@ -1,6 +1,7 @@
 {
   "id": 14,
   "displayName": "Red Gravel",
+  "name" : "default:redgravel",
   "resistance": 30,
   "type": "FULL",
   "material": "SAND",

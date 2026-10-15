@@ -9,7 +9,7 @@
 #include <functional>
 #include <tuple>
 #include <iostream>
-#include "../core/enum.hpp"
+#include "../../core/enum.hpp"
 #include "Chunk.hpp"
 
 static inline int64_t PackChunkKey(int32_t x, int32_t y, int32_t z) {

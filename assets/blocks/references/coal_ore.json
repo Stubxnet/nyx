@@ -1,6 +1,7 @@
 {
   "id": 6,
   "displayName": "Coal Ore",
+  "name" : "default:coal_ore",
   "resistance": 30,
   "type": "FULL",
   "material": "STONE",

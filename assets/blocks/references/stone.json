@@ -1,6 +1,7 @@
 {
   "id": 4,
   "displayName": "Stone",
+  "name" : "default:stone",
   "resistance": 30,
   "type": "FULL",
   "material": "STONE",

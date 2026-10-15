@@ -299,7 +299,6 @@ static void updateMovementAndRaycast(GameState& gs) {
 }
 
 void updateGame(GameState& gs) {
-    handleWindowEvents(gs);
     if (gs.shouldExit) return;
 
     if (gs.currentScreen != GAME) {

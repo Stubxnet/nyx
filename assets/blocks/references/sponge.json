@@ -1,6 +1,7 @@
 {
   "id": 15,
   "displayName": "Sponge",
+  "name" : "default:sponge",
   "resistance": 30,
   "type": "FULL",
   "material": "VEGETAL",

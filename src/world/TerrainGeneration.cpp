@@ -1,5 +1,5 @@
 #include "../core/constants.hpp"
-#include "../lib/World.hpp"
+#include "../world/lib/World.hpp"
 
 #include "../../include/FastNoiseLite.h"
 

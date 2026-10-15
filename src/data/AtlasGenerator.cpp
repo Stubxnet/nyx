@@ -14,8 +14,9 @@
 
 #include <nlohmann/json.hpp>
 
-#include "../lib/BlockDefaults.hpp"
-#include "../utils/IO_Utils.cpp"
+#include "../data/lib/BlocksDefaults.hpp"
+
+#include "../utils/utils.cpp"
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;
@@ -45,17 +46,17 @@ static inline int ceilSqrtInt(int x) {
 }
 
 static inline Rectangle normalizedUVFromIndex(int idx, int atlasCols, int atlasRows, int atlasW, int atlasH) {
-    if (idx < 0 || atlasCols <= 0 || atlasRows <= 0 || atlasW <= 0 || atlasH <= 0 || TILE_SIZE <= 0) { throw std::runtime_error("Invalid atlas dimensions or texture index."); }
+    if (idx < 0 || atlasCols <= 0 || atlasRows <= 0 || atlasW <= 0 || atlasH <= 0 || TILE <= 0) { throw std::runtime_error("Invalid atlas dimensions or texture index."); }
 
     const int col = idx % atlasCols;
     const int row = idx / atlasCols;
 
     if (row >= atlasRows) { throw std::runtime_error("Texture index is outside the atlas grid."); }
 
-    const float x = static_cast<float>(col * TILE_SIZE) / static_cast<float>(atlasW);
-    const float yTop = static_cast<float>(row * TILE_SIZE) / static_cast<float>(atlasH);
-    const float w = static_cast<float>(TILE_SIZE) / static_cast<float>(atlasW);
-    const float h = static_cast<float>(TILE_SIZE) / static_cast<float>(atlasH);
+    const float x = static_cast<float>(col * TILE) / static_cast<float>(atlasW);
+    const float yTop = static_cast<float>(row * TILE) / static_cast<float>(atlasH);
+    const float w = static_cast<float>(TILE) / static_cast<float>(atlasW);
+    const float h = static_cast<float>(TILE) / static_cast<float>(atlasH);
 
     return Rectangle{x, 1.0f - (yTop + h), w, h};
 }
@@ -134,7 +135,7 @@ static inline bool loadAtlasUVJson(BlocksDefaults& blocksDefaults, const fs::pat
     try {
         if (uvPath.empty() || !fs::exists(uvPath) || !fs::is_regular_file(uvPath)) { return false; }
 
-        const std::string raw = IOutils::readTextFile(uvPath);
+        const std::string raw = readTextFile(uvPath);
         if (raw.find_first_not_of(" \t\r\n") == std::string::npos) { return false; }
 
         const json j = json::parse(raw);
@@ -203,7 +204,7 @@ static inline void saveAtlasPNG(const BlocksDefaults& blocksDefaults, const fs::
 }
 
 static inline void buildAtlasForBlocksImpl(BlocksDefaults& blocksDefaults, const fs::path& texturesDir, const fs::path& atlasPngOut, const fs::path& atlasUvOut) {
-    if (TILE_SIZE <= 0) { throw std::runtime_error("TILE_SIZE must be greater than zero."); }
+    if (TILE <= 0) { throw std::runtime_error("TILE must be greater than zero."); }
 
     unloadAtlas(blocksDefaults);
 
@@ -229,14 +230,14 @@ static inline void buildAtlasForBlocksImpl(BlocksDefaults& blocksDefaults, const
                 fs::path texPath = texturesDir / texNameRaw;
                 if (texPath.extension().empty()) { texPath += ".png"; }
 
-                Image img = IOutils::loadImageOrFallback(texPath);
+                Image img = loadImageOrFallback(texPath);
                 ImageAutoUnload imageGuard(img);
 
                 if (img.data == nullptr || img.width <= 0 || img.height <= 0) { throw std::runtime_error("Failed to load texture image: " + texPath.string()); }
 
-                if (img.width != TILE_SIZE || img.height != TILE_SIZE) {
+                if (img.width != TILE || img.height != TILE) {
                     throw std::runtime_error("Texture has unexpected dimensions after ensureTileSize: " + texPath.string() + " (" + std::to_string(img.width) + "x" + std::to_string(img.height) +
-                                             ", expected " + std::to_string(TILE_SIZE) + "x" + std::to_string(TILE_SIZE) + ")");
+                                             ", expected " + std::to_string(TILE) + "x" + std::to_string(TILE) + ")");
                 }
 
                 const uint64_t hash = hashImagePixels(img);
@@ -263,10 +264,10 @@ static inline void buildAtlasForBlocksImpl(BlocksDefaults& blocksDefaults, const
         if (N == 0) {
             blocksDefaults.atlasCols = 1;
             blocksDefaults.atlasRows = 1;
-            blocksDefaults.atlasW = TILE_SIZE;
-            blocksDefaults.atlasH = TILE_SIZE;
+            blocksDefaults.atlasW = TILE;
+            blocksDefaults.atlasH = TILE;
 
-            blocksDefaults.atlasRT = LoadRenderTexture(TILE_SIZE, TILE_SIZE);
+            blocksDefaults.atlasRT = LoadRenderTexture(TILE, TILE);
             if (blocksDefaults.atlasRT.id == 0 || blocksDefaults.atlasRT.texture.id == 0) {
                 blocksDefaults.atlasRT = RenderTexture2D{};
                 throw std::runtime_error("Failed to create dummy atlas.");
@@ -279,7 +280,7 @@ static inline void buildAtlasForBlocksImpl(BlocksDefaults& blocksDefaults, const
                 auto blockIt = blocksDefaults.loaded.blocks.find(id);
                 if (blockIt == blocksDefaults.loaded.blocks.end()) { throw std::runtime_error("Block ID is missing from loaded blocks: " + std::to_string(id)); }
 
-                for (int fi : faceOrder) { blockIt->second.faces[fi].uv = normalizedUVFromIndex(0, 1, 1, TILE_SIZE, TILE_SIZE); }
+                for (int fi : faceOrder) { blockIt->second.faces[fi].uv = normalizedUVFromIndex(0, 1, 1, TILE, TILE); }
             }
 
             saveAtlasPNG(blocksDefaults, atlasPngOut);
@@ -292,8 +293,8 @@ static inline void buildAtlasForBlocksImpl(BlocksDefaults& blocksDefaults, const
         const int atlasCols = ceilSqrtInt(N);
         const int atlasRows = (N + atlasCols - 1) / atlasCols;
 
-        const long long atlasW64 = static_cast<long long>(atlasCols) * TILE_SIZE;
-        const long long atlasH64 = static_cast<long long>(atlasRows) * TILE_SIZE;
+        const long long atlasW64 = static_cast<long long>(atlasCols) * TILE;
+        const long long atlasH64 = static_cast<long long>(atlasRows) * TILE;
 
         if (atlasW64 <= 0 || atlasH64 <= 0 || atlasW64 > std::numeric_limits<int>::max() || atlasH64 > std::numeric_limits<int>::max() || atlasCols > std::numeric_limits<uint16_t>::max() ||
             atlasRows > std::numeric_limits<uint16_t>::max()) {
@@ -327,7 +328,7 @@ static inline void buildAtlasForBlocksImpl(BlocksDefaults& blocksDefaults, const
                 fs::path path = texturesDir / texNameRaw;
                 if (path.extension().empty()) { path += ".png"; }
 
-                Texture2D tex = IOutils::loadTextureOrFallback(path);
+                Texture2D tex = loadTextureOrFallback(path);
                 if (tex.id == 0 || tex.width <= 0 || tex.height <= 0) {
                     if (tex.id != 0) UnloadTexture(tex);
                     throw std::runtime_error("Failed to load texture: " + path.string());
@@ -344,7 +345,7 @@ static inline void buildAtlasForBlocksImpl(BlocksDefaults& blocksDefaults, const
                 const int row = i / atlasCols;
 
                 const Rectangle src{0.0f, 0.0f, static_cast<float>(tex.width), static_cast<float>(tex.height)};
-                const Rectangle dst{static_cast<float>(col * TILE_SIZE), static_cast<float>(row * TILE_SIZE), static_cast<float>(TILE_SIZE), static_cast<float>(TILE_SIZE)};
+                const Rectangle dst{static_cast<float>(col * TILE), static_cast<float>(row * TILE), static_cast<float>(TILE), static_cast<float>(TILE)};
 
                 DrawTexturePro(tex, src, dst, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
             }

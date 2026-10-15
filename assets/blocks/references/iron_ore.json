@@ -1,6 +1,7 @@
 {
   "id": 7,
   "displayName": "Iron Ore",
+  "name" : "default:iron_ore",
   "resistance": 30,
   "type": "FULL",
   "material": "STONE",

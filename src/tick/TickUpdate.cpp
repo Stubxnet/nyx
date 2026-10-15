@@ -2,9 +2,9 @@
 #include "raymath.h"
 #include <memory>
 
-#include "../lib/RaycastHit.hpp"
-#include "../lib/DDA_raycasting.cpp"
-#include "../lib/World.hpp"
+#include "../raycasting/RaycastHit.hpp"
+#include "../raycasting/DDARaycasting.cpp"
+#include "../world/lib/World.hpp"
 #include "../lib/Body.hpp"
 #include "../lib/RenderState.hpp"
 
@@ -62,7 +62,7 @@ RaycastHit UpdateRaycastingTick(
 ) {
     if (blockPlacingCooldown > 0) blockPlacingCooldown--;
 
-    RaycastHit hit = DDA_RaycastWorld(ray, world, reach);
+    RaycastHit hit = DDARaycasting(ray, world, reach);
 
     if (hit.hit && queuedBreak && breakingAllowed) {
         world.SetBlock(hit.x, hit.y, hit.z, 0, SetblockActions::SET);

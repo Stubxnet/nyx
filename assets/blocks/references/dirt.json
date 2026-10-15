@@ -1,9 +1,10 @@
 {
   "id": 2,
   "displayName": "Dirt",
+  "name" : "default:dirt",
   "resistance": 30,
   "type": "FULL",
-  "material": "SAND",
+  "material": "DIRT",
   "faces": {
     "top": "dirt",
     "bottom": "dirt",

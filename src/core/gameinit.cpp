@@ -1,5 +1,6 @@
 #include "gamestate.hpp"
-#include "../lib/Config.hpp"
+#include "../data/lib/Config.hpp"
+#include "../utils/utils.cpp"
 
 #include <iostream>
 

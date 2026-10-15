@@ -1,30 +1,23 @@
 #pragma once
+#include "../data/lib/Config.hpp"
 
 // This file contains the different "enum" types used.
-
+// I wrote tons of comments here because I like it.
+//----------------------------Game------------------------------
+// result of config init pass
+struct ConfigResult {
+    Config config;
+    bool showHelp = false;
+};
 //---------------------------Game menu--------------------------
 // stores the active game screen
-enum GameScreen { 
-    MENU, 
-    GAME, 
-    OPTIONS,
-    DEATH
-};
+enum GameScreen { MENU, GAME, OPTIONS, DEATH };
 
 // Represents the action of player in the MENU screen
-enum class MenuAction { 
-    NONE, 
-    PLAY, 
-    OPTIONS, 
-    QUIT 
-};
+enum class MenuAction { NONE, PLAY, OPTIONS, QUIT };
 
 // Represents the action of player in the OPTIONS screen
-enum class OptionsAction { 
-    NONE, 
-    QUIT, 
-    BACK 
-};
+enum class OptionsAction { NONE, QUIT, BACK };
 
 //-----------------------------World--------------------------------------
 ///////// Blocks ///////////
@@ -36,68 +29,28 @@ enum class SetblockActions {
 };
 
 // types of blocks filling actions
-enum class BlockFillActions {
-    SET,
-    REPLACE,
-    KEEP,
-    BREAK,
-    OUTLINE
-};
+enum class BlockFillActions { SET, REPLACE, KEEP, BREAK, OUTLINE };
 
 // block types
-enum class BlockType : uint8_t {
-    FULL,
-    STAIRS,
-    SLAB,
-    ORIENTED,
-    LEAVES
-};
+enum class BlockType : uint8_t { FULL, STAIRS, SLAB, ORIENTED, LEAVES };
 
 // represents the block material (used for rendering and for gameplay)
-enum BlockMaterial {
-    SAND,
-    STONE,
-    WOOD,
-    VEGETAL
-};
+enum BlockMaterial { DIRT, SAND, STONE, WOOD, VEGETAL, LIQUID };
 
 /////////// Chunks ////////////
 // tag for chunk loading
-enum class ChunkState : uint8_t {
-    Unloaded,
-    Generated,
-    Generating,
-    Dirty,
-    Meshing,
-    Ready,
-    Unloading
-};
+enum class ChunkState : uint8_t { Unloaded, Generated, Generating, Dirty, Meshing, Ready, Unloading };
+
+////////// Worldgen ////////////
+// select the generic biome type
+enum class BiomeSelectionType { Climate, Ocean, Beach, Mountain, SnowMountain, Badlands };
 
 //-----------------------------Entities/Player-------------------------------
 // different available gamemodes
-enum GameModes { 
-    SURVIVAL,
-    CREATIVE,
-    SPECTATOR,
-    BUILDER,
-    UNKNOWN
-};
+enum GameModes { SURVIVAL, CREATIVE, SPECTATOR, BUILDER, UNKNOWN };
 
 // entity type
-enum EntityType {
-    PLAYER,
-    MOB_RANGED,
-    MOB_MELEE,
-    MOB_OTHER,
-    MOB_PASSIVE,
-    TECHNICAL
-};
+enum EntityType { PLAYER, MOB_RANGED, MOB_MELEE, MOB_OTHER, MOB_PASSIVE, TECHNICAL };
 
 // moving mode (for entities)
-enum MoveMode {
-    WALKING,
-    FLYING,
-    CREATIVE_FLY,
-    SWIMMING,
-    STATIC
-};
+enum MoveMode { WALKING, FLYING, CREATIVE_FLY, SWIMMING, STATIC };

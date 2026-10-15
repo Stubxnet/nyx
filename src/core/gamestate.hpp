@@ -8,14 +8,16 @@
 #include "enum.hpp"
 
 #include "../data/BlocksDefaults.cpp"
+#include "../data/lib/BlocksDefaults.hpp"
 
-#include "../lib/BlockDefaults.hpp"
-#include "../lib/Chunk.hpp"
-#include "../lib/World.hpp"
-#include "../lib/RaycastHit.hpp"
+#include "../world/lib/Chunk.hpp"
+#include "../world/lib/World.hpp"
+#include "../world/lib/Biome.hpp"
+
 #include "../lib/RenderState.hpp"
 #include "../lib/Body.hpp"
-#include "../lib/Biome.hpp"
+
+#include "../raycasting/RaycastHit.hpp"
 
 #include "../core/constants.hpp"
 

@@ -1,6 +1,7 @@
 {
   "id": 11,
   "displayName": "Desert Gravel",
+  "name" : "default:desertgravel",
   "resistance": 30,
   "type": "FULL",
   "material": "SAND",

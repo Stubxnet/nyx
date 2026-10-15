@@ -1,258 +1,381 @@
 #pragma once
 
 #include <nlohmann/json.hpp>
+
+#include <cstdint>
 #include <filesystem>
+#include <iostream>
+#include <limits>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
-#include <iostream>
-#include <optional>
-#include <variant>
 
-#include "../lib/BlockDefaults.hpp"
-#include "../lib/BlockData.hpp"
-#include "../utils/IO_Utils.cpp"
+#include "../data/lib/BlocksDefaults.hpp"
+#include "lib/BlockData.hpp"
+#include "../utils/utils.cpp"
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;
 
 static inline std::string readTrimmedText(const fs::path& path) {
-    std::string s = IOutils::readTextFile(path);
-    auto first = s.find_first_not_of(" \t\r\n");
-    if (first == std::string::npos) return {};
-    auto last = s.find_last_not_of(" \t\r\n");
-    return s.substr(first, last - first + 1);
+    std::string text = readTextFile(path);
+
+    const auto first = text.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) { return {}; }
+
+    const auto last = text.find_last_not_of(" \t\r\n");
+    return text.substr(first, last - first + 1);
 }
 
-static inline std::string requireString(const json& j, const char* key, const fs::path& path) {
-    if (!j.contains(key)) throw std::runtime_error("Missing field '" + std::string(key) + "' in " + path.string());
-    if (!j.at(key).is_string()) throw std::runtime_error("Field '" + std::string(key) + "' must be a string in " + path.string());
-    return j.at(key).get<std::string>();
+namespace block_json_detail {
+
+static inline std::string location(const fs::path& path) { return path.string(); }
+
+static inline const json& requireField(const json& object, const char* key, const fs::path& path) {
+    if (!object.contains(key)) { throw std::runtime_error("Missing field '" + std::string(key) + "' in " + location(path)); }
+
+    return object.at(key);
 }
 
-static inline uint16_t requireU16(const json& j, const char* key, const fs::path& path) {
-    if (!j.contains(key)) throw std::runtime_error("Missing field '" + std::string(key) + "' in " + path.string());
-    if (!j.at(key).is_number_integer()) throw std::runtime_error("Field '" + std::string(key) + "' must be an integer in " + path.string());
+static inline const json* optionalField(const json& object, const char* key) {
+    if (!object.contains(key)) { return nullptr; }
 
-    long long v = j.at(key).get<long long>();
-    if (v < 0 || v > 65535) throw std::runtime_error("Field '" + std::string(key) + "' out of range [0..65535] in " + path.string());
-
-    return static_cast<uint16_t>(v);
+    return &object.at(key);
 }
+
+static inline const json& requireObject(const json& object, const char* key, const fs::path& path) {
+    const json& value = requireField(object, key, path);
+
+    if (!value.is_object()) { throw std::runtime_error("Field '" + std::string(key) + "' must be an object in " + location(path)); }
+
+    return value;
+}
+
+static inline std::string requireString(const json& object, const char* key, const fs::path& path) {
+    const json& value = requireField(object, key, path);
+
+    if (!value.is_string()) { throw std::runtime_error("Field '" + std::string(key) + "' must be a string in " + location(path)); }
+
+    return value.get<std::string>();
+}
+
+static inline std::uint16_t requireU16(const json& object, const char* key, const fs::path& path) {
+    const json& value = requireField(object, key, path);
+
+    if (!value.is_number_integer()) { throw std::runtime_error("Field '" + std::string(key) + "' must be an integer in " + location(path)); }
+
+    std::uint64_t number = 0;
+
+    if (value.is_number_unsigned()) {
+        number = value.get<std::uint64_t>();
+    } else {
+        const std::int64_t signedNumber = value.get<std::int64_t>();
+
+        if (signedNumber < 0) { throw std::runtime_error("Field '" + std::string(key) + "' out of range [0..65535] in " + location(path)); }
+        number = static_cast<std::uint64_t>(signedNumber);
+    }
+
+    if (number > std::numeric_limits<std::uint16_t>::max()) { throw std::runtime_error("Field '" + std::string(key) + "' out of range [0..65535] in " + location(path)); }
+
+    return static_cast<std::uint16_t>(number);
+}
+
+static inline std::string requireStringValue(const json& value, const std::string& fieldName, const fs::path& path) {
+    if (!value.is_string()) { throw std::runtime_error("Field '" + fieldName + "' must be a string in " + location(path)); }
+
+    return value.get<std::string>();
+}
+
+static inline bool requireBoolValue(const json& value, const std::string& fieldName, const fs::path& path) {
+    if (!value.is_boolean()) { throw std::runtime_error("Field '" + fieldName + "' must be boolean in " + location(path)); }
+
+    return value.get<bool>();
+}
+
+
+template <typename Enum> static inline Enum parseEnum(const std::string& value, const std::unordered_map<std::string, Enum>& values, const std::string& fieldName, const fs::path& path) {
+    const auto it = values.find(value);
+
+    if (it == values.end()) { throw std::runtime_error("Invalid " + fieldName + " '" + value + "' in " + location(path)); }
+
+    return it->second;
+}
+
+static inline const std::unordered_map<std::string, BlockType>& blockTypes() {
+    static const std::unordered_map<std::string, BlockType> values{
+        {"FULL", BlockType::FULL},
+        {"STAIRS", BlockType::STAIRS},
+        {"SLAB", BlockType::SLAB},
+        {"LEAVES", BlockType::LEAVES},
+        {"ORIENTED", BlockType::ORIENTED},
+    };
+    return values;
+}
+
+static inline const std::unordered_map<std::string, BlockMaterial>& materials() {
+    static const std::unordered_map<std::string, BlockMaterial> values{
+        {"DIRT", BlockMaterial::DIRT},
+        {"SAND", BlockMaterial::SAND},
+        {"STONE", BlockMaterial::STONE},
+        {"WOOD", BlockMaterial::WOOD},
+        {"VEGETAL", BlockMaterial::VEGETAL},
+        {"LIQUID", BlockMaterial::LIQUID},
+    };
+    return values;
+}
+
+static inline const std::unordered_map<std::string, Axis>& axes() {
+    static const std::unordered_map<std::string, Axis> values{
+        {"X", Axis::X},
+        {"Y", Axis::Y},
+        {"Z", Axis::Z},
+    };
+    return values;
+}
+
+static inline const std::unordered_map<std::string, Facing6>& facings() {
+    static const std::unordered_map<std::string, Facing6> values{
+        {"Down", Facing6::Down}, {"Up", Facing6::Up}, {"North", Facing6::North}, {"South", Facing6::South}, {"West", Facing6::West}, {"East", Facing6::East},
+    };
+    return values;
+}
+
+template <typename Enum>
+static inline Enum parseOptionalEnumField(const json& object, const char* key, const std::string& fieldName, const std::unordered_map<std::string, Enum>& values, Enum defaultValue,
+                                          const fs::path& path) {
+    const json* value = optionalField(object, key);
+    if (value == nullptr) { return defaultValue; }
+
+    const std::string text = requireStringValue(*value, fieldName, path);
+    return parseEnum(text, values, fieldName, path);
+}
+
+static inline bool parseOptionalBoolField(const json& object, const char* key, const std::string& fieldName, bool defaultValue, const fs::path& path) {
+    const json* value = optionalField(object, key);
+    if (value == nullptr) { return defaultValue; }
+
+    return requireBoolValue(*value, fieldName, path);
+}
+
+static inline std::optional<SlabData> parseSlabData(const json& object, const fs::path& path) {
+    const json* slabJson = optionalField(object, "slab");
+
+    if (slabJson == nullptr) { return std::nullopt; }
+
+    if (!slabJson->is_object()) { return std::nullopt; }
+
+    SlabData data;
+
+    data.top = parseOptionalBoolField(*slabJson, "top", "slab.top", data.top, path);
+
+    data.axis = parseOptionalEnumField(*slabJson, "axis", "slab.axis", axes(), data.axis, path);
+
+    return data;
+}
+
+static inline std::optional<StairsData> parseStairsData(const json& object, const fs::path& path) {
+    const json* stairsJson = optionalField(object, "stairs");
+
+    if (stairsJson == nullptr) { return std::nullopt; }
+
+    if (!stairsJson->is_object()) { return std::nullopt; }
+
+    StairsData data;
+
+    data.facing = parseOptionalEnumField(*stairsJson, "facing", "stairs.facing", facings(), data.facing, path);
+
+    data.upsideDown = parseOptionalBoolField(*stairsJson, "upsideDown", "stairs.upsideDown", data.upsideDown, path);
+
+    data.side = parseOptionalBoolField(*stairsJson, "side", "stairs.side", data.side, path);
+
+    return data;
+}
+
+static inline std::optional<OrientedData> parseOrientedData(const json& object, const fs::path& path) {
+    const json* orientedJson = optionalField(object, "oriented");
+
+    if (orientedJson == nullptr) { return std::nullopt; }
+
+    if (!orientedJson->is_object()) { return std::nullopt; }
+
+    OrientedData data;
+
+    data.facing = parseOptionalEnumField(*orientedJson, "facing", "oriented.facing", facings(), data.facing, path);
+
+    return data;
+}
+
+static inline json readJsonObject(const fs::path& path) {
+    const std::string raw = readTrimmedText(path);
+
+    if (raw.empty()) { throw std::runtime_error("Empty JSON file: " + path.string()); }
+
+    json parsed;
+
+    try {
+        parsed = json::parse(raw);
+    } catch (const json::parse_error& error) { throw std::runtime_error("Invalid JSON in " + path.string() + ": " + error.what()); }
+
+    if (!parsed.is_object()) { throw std::runtime_error("Root JSON value must be an object in " + path.string()); }
+
+    return parsed;
+}
+
+} // namespace block_json_detail
+
+
+
+static inline std::string requireString(const json& j, const char* key, const fs::path& path) { return block_json_detail::requireString(j, key, path); }
+
+static inline std::uint16_t requireU16(const json& j, const char* key, const fs::path& path) { return block_json_detail::requireU16(j, key, path); }
 
 static inline void validateTextureExists(const fs::path& textureDir, const std::string& textureName, const fs::path& jsonPath) {
-    fs::path texturePath = textureDir / textureName;
-
-    if (texturePath.extension().empty()) { texturePath += ".png"; }
+    const fs::path texturePath = textureDir / textureName;
 
     if (!fs::exists(texturePath) || !fs::is_regular_file(texturePath)) {
         throw std::runtime_error("Missing texture '" + textureName + "' referenced by " + jsonPath.string() + " (" + texturePath.string() + ")");
     }
 }
 
-static inline void normalizeTextureNames(BlockReference& b, const fs::path& textureDir, const fs::path& jsonPath) {
-    for (auto& face : b.faces) {
-        if (face.textureName.empty()) continue;
+static inline void normalizeTextureNames(BlockReference& block, const fs::path& textureDir, const fs::path& jsonPath) {
+    for (auto& face : block.faces) {
+        if (face.textureName.empty()) { continue; }
+
         if (fs::path(face.textureName).extension().empty()) { face.textureName += ".png"; }
+
         validateTextureExists(textureDir, face.textureName, jsonPath);
     }
 }
 
 static inline BlockType parseBlockType(const json& j, const char* key, const fs::path& path) {
-    if (!j.contains(key)) return BlockType::FULL;
-    if (!j.at(key).is_string()) throw std::runtime_error("Field '" + std::string(key) + "' must be a string in " + path.string());
+    const json* value = block_json_detail::optionalField(j, key);
+    if (value == nullptr) { return BlockType::FULL; }
 
-    const std::string s = j.at(key).get<std::string>();
-    if (s == "FULL") return BlockType::FULL;
-    if (s == "STAIRS") return BlockType::STAIRS;
-    if (s == "SLAB") return BlockType::SLAB;
-    if (s == "LEAVES") return BlockType::LEAVES;
-    if (s == "ORIENTED") return BlockType::ORIENTED;
+    const std::string name = block_json_detail::requireStringValue(*value, key, path);
 
-    throw std::runtime_error("Invalid block type '" + s + "' in " + path.string());
+    return block_json_detail::parseEnum(name, block_json_detail::blockTypes(), "block type", path);
 }
 
 static inline BlockMaterial parseBlockMaterial(const json& j, const char* key, const fs::path& path) {
-    if (!j.contains(key)) return BlockMaterial::SAND;
-    if (!j.at(key).is_string()) throw std::runtime_error("Field '" + std::string(key) + "' must be a string in " + path.string());
+    const json* value = block_json_detail::optionalField(j, key);
+    if (value == nullptr) { return BlockMaterial::SAND; }
 
-    const std::string s = j.at(key).get<std::string>();
-    if (s == "SAND") return BlockMaterial::SAND;
-    if (s == "STONE") return BlockMaterial::STONE;
-    if (s == "WOOD") return BlockMaterial::WOOD;
-    if (s == "VEGETAL") return BlockMaterial::VEGETAL;
+    const std::string name = block_json_detail::requireStringValue(*value, key, path);
 
-    throw std::runtime_error("Invalid material '" + s + "' in " + path.string());
+    return block_json_detail::parseEnum(name, block_json_detail::materials(), "material", path);
 }
 
-static inline Axis parseAxisStr(const std::string& s, const fs::path& path) {
-    if (s == "X") return Axis::X;
-    if (s == "Y") return Axis::Y;
-    if (s == "Z") return Axis::Z;
-    throw std::runtime_error("Invalid axis '" + s + "' in " + path.string());
-}
+static inline Axis parseAxisStr(const std::string& value, const fs::path& path) { return block_json_detail::parseEnum(value, block_json_detail::axes(), "axis", path); }
 
-static inline Facing6 parseFacing6Str(const std::string& s, const fs::path& path) {
-    if (s == "Down") return Facing6::Down;
-    if (s == "Up") return Facing6::Up;
-    if (s == "North") return Facing6::North;
-    if (s == "South") return Facing6::South;
-    if (s == "West") return Facing6::West;
-    if (s == "East") return Facing6::East;
-    throw std::runtime_error("Invalid facing6 '" + s + "' in " + path.string());
-}
+static inline Facing6 parseFacing6Str(const std::string& value, const fs::path& path) { return block_json_detail::parseEnum(value, block_json_detail::facings(), "facing6", path); }
 
 static inline std::optional<BlockExtra> parseExtraByType(const json& j, BlockType type, const fs::path& path) {
-    if (type == BlockType::SLAB) {
-        if (!j.contains("slab") || !j.at("slab").is_object()) return std::nullopt;
-
-        const json& sj = j.at("slab");
-        SlabData sd;
-
-        if (sj.contains("top")) {
-            if (!sj.at("top").is_boolean()) throw std::runtime_error("Field 'slab.top' must be boolean in " + path.string());
-            sd.top = sj.at("top").get<bool>();
-        }
-        if (sj.contains("axis")) {
-            if (!sj.at("axis").is_string()) throw std::runtime_error("Field 'slab.axis' must be string in " + path.string());
-            sd.axis = parseAxisStr(sj.at("axis").get<std::string>(), path);
-        }
-
-        return BlockExtra{sd};
+    switch (type) {
+    case BlockType::SLAB: {
+        const auto data = block_json_detail::parseSlabData(j, path);
+        if (data) return BlockExtra{*data};
+        return std::nullopt;
     }
 
-    if (type == BlockType::STAIRS) {
-        if (!j.contains("stairs") || !j.at("stairs").is_object()) return std::nullopt;
-
-        const json& stj = j.at("stairs");
-        StairsData sd;
-
-        if (stj.contains("facing")) {
-            if (!stj.at("facing").is_string()) throw std::runtime_error("Field 'stairs.facing' must be string in " + path.string());
-            sd.facing = parseFacing6Str(stj.at("facing").get<std::string>(), path);
-        }
-        if (stj.contains("upsideDown")) {
-            if (!stj.at("upsideDown").is_boolean()) throw std::runtime_error("Field 'stairs.upsideDown' must be boolean in " + path.string());
-            sd.upsideDown = stj.at("upsideDown").get<bool>();
-        }
-        if (stj.contains("side")) {
-            if (!stj.at("side").is_boolean()) throw std::runtime_error("Field 'stairs.side' must be boolean in " + path.string());
-            sd.side = stj.at("side").get<bool>();
-        }
-
-        return BlockExtra{sd};
+    case BlockType::STAIRS: {
+        const auto data = block_json_detail::parseStairsData(j, path);
+        if (data) return BlockExtra{*data};
+        return std::nullopt;
     }
 
-    if (type == BlockType::ORIENTED) {
-        if (!j.contains("oriented") || !j.at("oriented").is_object()) return std::nullopt;
-
-        const json& oj = j.at("oriented");
-        OrientedData od;
-
-        if (oj.contains("facing")) {
-            if (!oj.at("facing").is_string()) throw std::runtime_error("Field 'oriented.facing' must be string in " + path.string());
-            od.facing = parseFacing6Str(oj.at("facing").get<std::string>(), path);
-        }
-
-        return BlockExtra{od};
+    case BlockType::ORIENTED: {
+        const auto data = block_json_detail::parseOrientedData(j, path);
+        if (data) return BlockExtra{*data};
+        return std::nullopt;
     }
 
-    return std::nullopt;
+    case BlockType::FULL:
+    case BlockType::LEAVES:
+    default:
+        return std::nullopt;
+    }
 }
 
 static inline BlockReference parseBlockJson(const fs::path& path, const fs::path& textureDir) {
-    const std::string raw = readTrimmedText(path);
-    if (raw.empty()) { throw std::runtime_error("Empty JSON file: " + path.string()); }
+    const json j = block_json_detail::readJsonObject(path);
 
-    json j;
-    try {
-        j = json::parse(raw);
-    } catch (const json::parse_error& e) { throw std::runtime_error("Invalid JSON in " + path.string() + ": " + std::string(e.what())); }
+    BlockReference block;
+    block.id = requireU16(j, "id", path);
+    block.displayName = requireString(j, "displayName", path);
+    block.name = requireString(j, "name", path);
+    block.resistance = requireU16(j, "resistance", path);
+    block.type = parseBlockType(j, "type", path);
+    block.material = parseBlockMaterial(j, "material", path);
 
-    if (!j.is_object()) { throw std::runtime_error("Root JSON value must be an object in " + path.string()); }
+    const json& faces = block_json_detail::requireObject(j, "faces", path);
 
-    BlockReference b;
-    b.id = requireU16(j, "id", path);
-    b.displayName = requireString(j, "displayName", path);
-    b.resistance = requireU16(j, "resistance", path);
-    b.type = parseBlockType(j, "type", path);
-    b.material = parseBlockMaterial(j, "material", path);
+    block.faces[TOP].textureName = block_json_detail::requireString(faces, "top", path);
+    block.faces[BOTTOM].textureName = block_json_detail::requireString(faces, "bottom", path);
+    block.faces[EAST].textureName = block_json_detail::requireString(faces, "east", path);
+    block.faces[WEST].textureName = block_json_detail::requireString(faces, "west", path);
+    block.faces[NORTH].textureName = block_json_detail::requireString(faces, "north", path);
+    block.faces[SOUTH].textureName = block_json_detail::requireString(faces, "south", path);
 
-    if (!j.contains("faces") || !j.at("faces").is_object()) { throw std::runtime_error("Missing or invalid 'faces' object in " + path.string()); }
+    block.extra = parseExtraByType(j, block.type, path);
 
-    const auto& faces = j.at("faces");
-
-    b.faces[TOP].textureName = requireString(faces, "top", path);
-    b.faces[BOTTOM].textureName = requireString(faces, "bottom", path);
-    b.faces[EAST].textureName = requireString(faces, "east", path);
-    b.faces[WEST].textureName = requireString(faces, "west", path);
-    b.faces[NORTH].textureName = requireString(faces, "north", path);
-    b.faces[SOUTH].textureName = requireString(faces, "south", path);
-
-    // --- AJOUT : extra optionnel via variant ---
-    b.extra = parseExtraByType(j, b.type, path);
-
-    normalizeTextureNames(b, textureDir, path);
-    return b;
+    normalizeTextureNames(block, textureDir, path);
+    return block;
 }
 
 static inline std::optional<BlockReference> parseDefaultBlockJson(const fs::path& path, const fs::path& textureDir) {
-    const std::string raw = readTrimmedText(path);
-    if (raw.empty()) { throw std::runtime_error("Empty JSON file: " + path.string()); }
+    const json j = block_json_detail::readJsonObject(path);
 
-    json j;
-    try {
-        j = json::parse(raw);
-    } catch (const json::parse_error& e) { throw std::runtime_error("Invalid JSON in " + path.string() + ": " + std::string(e.what())); }
+    std::string texture = requireString(j, "texture", path);
 
-    if (!j.is_object()) { throw std::runtime_error("Root JSON value must be an object in " + path.string()); }
+    if (fs::path(texture).extension().empty()) { texture += ".png"; }
 
-    if (!j.contains("texture") || !j.at("texture").is_string()) { throw std::runtime_error("Missing field 'texture' in default block file " + path.string()); }
+    validateTextureExists(textureDir, texture, path);
 
-    std::string tex = j.at("texture").get<std::string>();
-    if (fs::path(tex).extension().empty()) { tex += ".png"; }
+    BlockReference block;
+    block.id = 0;
+    block.displayName = "default";
+    block.resistance = 16383; // Unbreakable block.
+    block.type = parseBlockType(j, "type", path);
+    block.material = parseBlockMaterial(j, "material", path);
 
-    validateTextureExists(textureDir, tex, path);
+    for (auto& face : block.faces) { face.textureName = texture; }
 
-    BlockReference b;
-    b.id = 0;
-    b.displayName = "default";
-    b.resistance = 16383; // Unbreakable block.
-    b.type = parseBlockType(j, "type", path);
-    b.material = parseBlockMaterial(j, "material", path);
-
-    for (auto& face : b.faces) { face.textureName = tex; }
-
-    b.extra = parseExtraByType(j, b.type, path);
-
-    return b;
+    block.extra = parseExtraByType(j, block.type, path);
+    return block;
 }
 
 static inline LoadedBlockDefaults loadBlockReferences(const fs::path& dir, const fs::path& textureDir) {
-    LoadedBlockDefaults out;
+    LoadedBlockDefaults result;
 
     if (!fs::exists(dir) || !fs::is_directory(dir)) { throw std::runtime_error("Invalid blocks directory: " + dir.string()); }
 
     const fs::path defaultPath = dir / "default.json";
+
     if (fs::exists(defaultPath) && fs::is_regular_file(defaultPath)) {
         try {
-            out.defaultBlock = parseDefaultBlockJson(defaultPath, textureDir);
-        } catch (const std::exception& e) { std::cerr << "[ERROR] " << e.what() << '\n'; }
+            result.defaultBlock = parseDefaultBlockJson(defaultPath, textureDir);
+        } catch (const std::exception& error) { std::cerr << "[ERROR] " << error.what() << '\n'; }
     } else {
-        std::cerr << "[WARNING] default.json not found, missing block IDs will have no fallback texture\n";
+        std::cerr << "[WARNING] default.json not found, missing block IDs "
+                  << "will have no fallback texture\n";
     }
 
     for (const auto& entry : fs::directory_iterator(dir)) {
-        if (!entry.is_regular_file() || entry.path().extension() != ".json") continue;
-        if (entry.path().filename() == "default.json") continue;
+        if (!entry.is_regular_file()) { continue; }
+
+        if (entry.path().extension() != ".json") { continue; }
+
+        if (entry.path().filename() == "default.json") { continue; }
 
         try {
-            BlockReference b = parseBlockJson(entry.path(), textureDir);
+            BlockReference block = parseBlockJson(entry.path(), textureDir);
 
-            auto [it, inserted] = out.blocks.insert_or_assign(b.id, std::move(b));
+            const auto [it, inserted] = result.blocks.insert_or_assign(block.id, std::move(block));
+
             if (!inserted) { std::cerr << "[WARNING] overwrite block id=" << it->first << '\n'; }
-        } catch (const std::exception& e) { std::cerr << "[ERROR] " << e.what() << '\n'; }
+        } catch (const std::exception& error) { std::cerr << "[ERROR] " << error.what() << '\n'; }
     }
 
-    return out;
+    return result;
 }

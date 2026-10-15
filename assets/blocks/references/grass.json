@@ -1,9 +1,10 @@
 {
   "id": 1,
   "displayName": "Grass Block",
+  "name" : "default:grass",
   "resistance": 30,
   "type": "FULL",
-  "material": "SAND",
+  "material": "DIRT",
   "faces": {
     "top": "grass_top",
     "bottom": "dirt",

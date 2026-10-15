@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <memory>
-#include "../lib/World.hpp"
+#include "../world/lib/World.hpp"
 #include "../core/enum.hpp"
 #include "../core/gamestate.hpp"
 #include "raylib.h"

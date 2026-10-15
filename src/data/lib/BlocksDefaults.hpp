@@ -8,10 +8,9 @@
 #include <algorithm>
 #include <optional>
 #include <unordered_map>
-#include "../core/enum.hpp"
-#include "../lib/BlockData.hpp"
-
-constexpr int TILE_SIZE = 32;
+#include "../../core/enum.hpp"
+#include "../../core/constants.hpp"
+#include "BlockData.hpp"
 
 enum Face : int {
     TOP = 0,    // +Y
@@ -34,6 +33,7 @@ struct FaceTexture {
 struct BlockReference {
     uint16_t id = 0;
     std::string displayName;
+    std::string name;
     uint16_t resistance = 0;
     BlockType type = BlockType::FULL;
     BlockMaterial material = BlockMaterial::SAND;

@@ -2,6 +2,8 @@
 #include "drawingUtils.hpp"
 #include "../core/enum.hpp"
 
+#include "../utils/utils.cpp"
+
 #include <iostream>
 
 void DrawChat(int screenheight, int screenwidth, int chatTextsize, std::string& chatContent) {
@@ -30,11 +32,11 @@ MenuAction DrawAndHandleMenu(int screenHeight, int screenWidth, Texture2D backgr
     EndDrawing();
 
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-        if (IOutils::CheckMousePosition(buttonXPlay, buttonYPlay, buttonWidth, buttonHeight)) {
+        if (CheckMousePosition(buttonXPlay, buttonYPlay, buttonWidth, buttonHeight)) {
             return MenuAction::PLAY;
-        } else if (IOutils::CheckMousePosition(buttonXPlay, buttonYOptions, buttonWidth, buttonHeight)) {
+        } else if (CheckMousePosition(buttonXPlay, buttonYOptions, buttonWidth, buttonHeight)) {
             return MenuAction::OPTIONS;
-        } else if (IOutils::CheckMousePosition(buttonXPlay, buttonYQuit, buttonWidth, buttonHeight)) {
+        } else if (CheckMousePosition(buttonXPlay, buttonYQuit, buttonWidth, buttonHeight)) {
             return MenuAction::QUIT;
         }
     }
@@ -56,9 +58,9 @@ OptionsAction DrawAndHandleOptions(int screenWidth, int screenHeight, Texture2D 
     DrawButton(buttonX2, buttonY, buttonWidth, buttonHeight, WHITE, buttonColor, "Back to menu");    
     EndDrawing();
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {        
-        if (IOutils::CheckMousePosition(buttonX1, buttonY, buttonWidth, buttonHeight)) {            
+        if (CheckMousePosition(buttonX1, buttonY, buttonWidth, buttonHeight)) {            
             return OptionsAction::QUIT;        
-        } else if (IOutils::CheckMousePosition(buttonX2, buttonY, buttonWidth, buttonHeight)) {            
+        } else if (CheckMousePosition(buttonX2, buttonY, buttonWidth, buttonHeight)) {            
             return OptionsAction::BACK;        
         }    
     }    

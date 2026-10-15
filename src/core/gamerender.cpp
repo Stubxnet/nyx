@@ -1,13 +1,13 @@
 #include "gamestate.hpp"
 
-static void drawCrosshair() {
+static void drawCursor(const Color& cursorColor, int lineSize, int lineGap) {
     int centerx = GetScreenWidth() / 2;
     int centery = GetScreenHeight() / 2;
 
-    DrawLine(centerx - 10, centery, centerx - 3, centery, WHITE);
-    DrawLine(centerx + 3,  centery, centerx + 10, centery, WHITE);
-    DrawLine(centerx, centery - 10, centerx, centery - 3, WHITE);
-    DrawLine(centerx, centery + 3,  centerx, centery + 10, WHITE);
+    DrawLine(centerx - lineSize, centery, centerx - lineGap, centery, cursorColor);
+    DrawLine(centerx + lineGap,  centery, centerx + lineSize, centery, cursorColor);
+    DrawLine(centerx, centery - lineSize, centerx, centery - lineGap, cursorColor);
+    DrawLine(centerx, centery + lineGap,  centerx, centery + lineSize, cursorColor);
 }
 
 static void drawWorld(GameState& gs) {
@@ -99,23 +99,21 @@ static void drawF3(GameState& gs) {
     DrawText(TextFormat("FPS: %i (Target: %i)", GetFPS(), gs.targetFPS),
              15, gs.hud.textSpacing, textSize, gs.hud.fpsColor);
 
-    drawLine("Nyx build pre-release 1.0.0");
-    drawLine("Current camera status:");
+    drawLine("Nyx build pre-release Alpha");
 
     const char* cameraModes[] = {
         "FREE", "FIRST_PERSON", "THIRD_PERSON", "ORBITAL", "CUSTOM"
     };
-    drawLine(TextFormat("Camera mode: %s",
-        cameraModes[std::min((int)gs.camera.cameraMode, 4)]));
+    drawLine(TextFormat("Cam mode: %s",
+        cameraModes[std::min((int)gs.camera.cameraMode, 2)]));
 
     const char* projections[] = {
         "PERSPECTIVE", "ORTHOGRAPHIC", "CUSTOM"
     };
-    drawLine(TextFormat("Projection: %s", projections[std::min((int)gs.camera.camera.projection, 2)]));
+    drawLine(TextFormat("Proj: %s", projections[std::min((int)gs.camera.camera.projection, 2)]));
 
-    drawLine(TextFormat("Position blocks: (%d, %d, %d)", bx, by, bz));
-    drawLine(TextFormat("Chunk courant: (%d, %d) | local: (%d, %d)",
-                         cx, cz, lx, lz));
+    drawLine(TextFormat("XYZ: %d %d %d", bx, by, bz));
+    drawLine(TextFormat("Chunk XYZ: cx: %d   cy: %d   cz: %d | lx: %d   ly: %d   lz: %d", cx, cy, cz, lx, ly, lz));
 
     drawLine(TextFormat("Target: (%06.3f, %06.3f, %06.3f)",
         gs.camera.camera.target.x,
@@ -124,20 +122,16 @@ static void drawF3(GameState& gs) {
 
     drawLine(TextFormat("Chunks on world: %d",
         (int)gs.world.world.GetChunkCount()));
-    drawLine(TextFormat("World seed: %d", (int32_t)gs.world.seed));
+    drawLine(TextFormat("Seed: %d", (int32_t)gs.world.seed));
     drawLine(TextFormat("Render distance: %d", gs.renderDistance));
-    drawLine(TextFormat("Surface Y: %d", surfaceY));
-    drawLine(TextFormat("Temperature: %.3f", temperature));
-    drawLine(TextFormat("Moisture: %.3f", moisture));
-    drawLine(TextFormat("Erosion: %.3f", erosion));
-    drawLine(TextFormat("Continentalness: %.3f", continentalness));
+    drawLine(TextFormat("SY: %d | T: %.3f | M: %.3f | E: %.3f | C: %.3f", surfaceY, temperature, moisture, erosion, continentalness));
     drawLine(TextFormat("Biome: %s", biomeName));
 
     const char* gamemodes[] = {
         "SURVIVAL", "CREATIVE", "SPECTATOR", "BUILDER", "UNKNOWN"
     };
     drawLine(TextFormat("Gamemode: %s",
-        gamemodes[std::min((int)gs.currentGamemode, 4)]));
+        gamemodes[std::min((int)gs.currentGamemode, 1)]));
 }
 
 static void drawChat(GameState& gs) {
@@ -162,7 +156,7 @@ void drawGame(GameState& gs) {
     drawWorld(gs);
     EndMode3D();
 
-    drawCrosshair();
+    drawCursor(WHITE, 10,  3);
     drawF3(gs);
     drawChat(gs);
     drawPause(gs);

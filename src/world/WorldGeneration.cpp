@@ -1,8 +1,8 @@
 #include "TerrainGeneration.cpp"
 
 #include "../core/constants.hpp"
-#include "../lib/Chunk.hpp"
-#include "../lib/VerticalChunk.hpp"
+#include "../world/lib/Chunk.hpp"
+#include "../world/lib/VerticalChunk.hpp"
 
 #include <algorithm>
 #include <cstdint>

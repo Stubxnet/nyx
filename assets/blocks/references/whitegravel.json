@@ -1,6 +1,7 @@
 {
   "id": 13,
   "displayName": "White Gravel",
+  "name" : "default:whitegravel",
   "resistance": 30,
   "type": "FULL",
   "material": "SAND",

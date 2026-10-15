@@ -1,6 +1,7 @@
 {
   "id": 3,
   "displayName": "Moss Block",
+  "name" : "default:moss",
   "resistance": 30,
   "type": "FULL",
   "material": "VEGETAL",

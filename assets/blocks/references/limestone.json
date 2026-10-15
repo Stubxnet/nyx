@@ -1,6 +1,7 @@
 {
   "id": 5,
   "displayName": "Limestone",
+  "name" : "default:limestone",
   "resistance": 30,
   "type": "FULL",
   "material": "STONE",

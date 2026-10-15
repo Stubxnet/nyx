@@ -1,6 +1,6 @@
 #pragma once
-#include "../core/constants.hpp"
-#include "../core/enum.hpp"
+#include "../../core/constants.hpp"
+#include "../../core/enum.hpp"
 #include <array>
 #include <cstdint>
 #include "raylib.h"

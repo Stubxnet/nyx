@@ -1,6 +1,7 @@
 {
   "id": 12,
   "displayName": "Black Gravel",
+  "name" : "default:blackgravel",
   "resistance": 30,
   "type": "FULL",
   "material": "SAND",

@@ -1,0 +1,16 @@
+{
+  "id": 16,
+  "displayName": "Gelatine Leaves",
+  "name" : "default:gelatineleaves",
+  "resistance": 30,
+  "type": "FULL",
+  "material": "VEGETAL",
+  "faces": {
+    "top": "gelatineleaves",
+    "bottom": "gelatineleaves",
+    "east": "gelatineleaves",
+    "west": "gelatineleaves",
+    "north": "gelatineleaves",
+    "south": "gelatineleaves"
+  }
+}

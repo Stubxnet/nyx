@@ -1,6 +1,7 @@
 {
   "id": 8,
   "displayName": "Oak Log",
+  "name" : "default:oaklog",
   "resistance": 30,
   "type": "FULL",
   "material": "WOOD",

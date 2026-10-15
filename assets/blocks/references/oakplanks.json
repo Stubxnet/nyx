@@ -1,6 +1,7 @@
 {
   "id": 10,
   "displayName": "Oak Planks",
+  "name" : "default:oakplanks",
   "resistance": 30,
   "type": "FULL",
   "material": "WOOD",

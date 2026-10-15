@@ -7,9 +7,9 @@
 #include <cstring>
 #include <cstdio>
 #include "raylib.h"
-#include "../lib/Chunk.hpp"
-#include "../lib/World.hpp"
-#include "../lib/BlockDefaults.hpp"
+#include "../world/lib/Chunk.hpp"
+#include "../world/lib/World.hpp"
+#include "../data/lib/BlocksDefaults.hpp"
 
 struct MeshSettings {
     int CHUNK_SIZE = ::CHUNK_SIZE;

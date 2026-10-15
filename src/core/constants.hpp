@@ -3,38 +3,43 @@
 #include "enum.hpp"
 #include <cstddef>
 
-#define TICK_RATE 20.0f
-#define TICK_DT (1.0f / TICK_RATE)
-#define BLOCK_PLACING_TICK_COOLDOWN 10
+/// ticks
+constexpr float TICK_RATE = 20.0f;
+constexpr float TICK_DT = (1.0f / TICK_RATE);
+constexpr int BLOCK_PLACING_TICK_COOLDOWN = 10;
 
-#define GRAVITY 0.08f
-#define JUMP_VELO 0.52f
-#define AIR_DRAG 0.98f
-#define SLIPPERINESS 0.6f
-#define GROUND_FRICTION (SLIPPERINESS * 0.91f)
-#define BASE_MOVE_SPEED 0.1f
+// physics
+constexpr float GRAVITY = 0.08f;
+constexpr float JUMP_VELO = 0.52f;
+constexpr float AIR_DRAG = 0.98f;
+constexpr float SLIPPERINESS = 0.6f;
+constexpr float GROUND_FRICTION = (SLIPPERINESS * 0.91f);
 
-#define SPRINT_MULTIPLIER 1.3f
-#define SNEAK_MULTIPLIER 0.3f
-#define CROUCH_HEIGHT 1.5f
-#define STAND_HEIGHT 1.85f
-#define BOTTOM_HEIGHT 0.5f
+// player stats
+constexpr float BASE_MOVE_SPEED = 0.1f;
+constexpr float SPRINT_MULTIPLIER = 1.3f;
+constexpr float SNEAK_MULTIPLIER = 0.3f;
+constexpr float CROUCH_HEIGHT = 1.5f;
+constexpr float STAND_HEIGHT = 1.85f;
+constexpr float BOTTOM_HEIGHT = 0.5f;
+constexpr float EYES_Y = 1.50f;
+constexpr float SNEAK_EYES_Y = 1.25f;
 
-#define EYES_Y 1.50f
-#define SNEAK_EYES_Y 1.25f
-
+// texture atlas tile size
 constexpr int TILE = 32;
 
+// chunks
 constexpr int CHUNK_SIZE = 16;
 constexpr size_t MAX_DIRTY_CHUNKS_PER_FRAME = 18;
 
-// Defaults
+// default data for some paramters
 constexpr int DEFAULT_RENDER_DISTANCE = 2;
 constexpr int DEFAULT_TARGET_FPS = 60;
 constexpr GameScreen DEFAULT_GAME_SCREEN = MENU;
 constexpr GameModes DEFAULT_GAMEMODE = SURVIVAL;
 constexpr MoveMode DEFAULT_PLAYER_MOVEMENT_MODE = WALKING;
 
+// perhaps these ones aren't needed but...
 constexpr bool DEFAULT_CHECKBLOCK = true;
 constexpr bool DEFAULT_IS_CREATIVE_FLY_ENABLED = true;
 constexpr bool DEFAULT_IS_GAME_PAUSED = false;
@@ -49,6 +54,7 @@ constexpr bool DEFAULT_BREAKING_ALLOWED = true;
 constexpr int DEFAULT_BLOCK_PLACING_COOLDOWN = 0;
 constexpr bool DEFAULT_APPLY_BLOCK_PLACEMENT_RESTRICTIONS = true;
 
+// both of these should be editable in the future
 constexpr float DEFAULT_REACH_SURVIVAL = 5.0f;
 constexpr float DEFAULT_REACH_BUILDER = 255.0f;
 
@@ -70,6 +76,8 @@ constexpr double DEFAULT_ACCUMULATOR = 0.0;
 //////////////////////
 // World generation //
 //////////////////////
+
+// generic world parmeters
 constexpr int32_t SEA_LEVEL = 0;
 
 constexpr int32_t MIN_SURFACE_Y = -128;
@@ -119,13 +127,11 @@ constexpr float WORLD_WARP_DISTANCE = 32.0f;
 
 // -----------------------------------------------------------------------------
 // noise frequencies
-//
 // WORLD_SCALE = 16 means that the effective wavelength in world blocks is
-// approximately:
-//
-//     wavelength = 1.0 / frequency / WORLD_SCALE
+// approximately: wavelength = 1.0 / frequency / WORLD_SCALE
 // -----------------------------------------------------------------------------
 
+// frequencies for generators
 constexpr float CONTINENT_FREQUENCY = 0.00010f;
 constexpr float CLIMATE_FREQUENCY = 0.00025f;
 constexpr float EROSION_FREQUENCY = 0.00030f;

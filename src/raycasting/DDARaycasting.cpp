@@ -4,7 +4,7 @@
 #include <cmath>
 #include <cstdint>
 
-#include "World.hpp"
+#include "../world/lib/World.hpp"
 #include "RaycastHit.hpp"
 
 static inline int Signf(float v)
@@ -12,7 +12,7 @@ static inline int Signf(float v)
     return (v > 0.0f) - (v < 0.0f);
 }
 
-RaycastHit DDA_RaycastWorld(const Ray& ray, const World& world, float maxDist)
+RaycastHit DDARaycasting(const Ray& ray, const World& world, float maxDist)
 {
     RaycastHit out;
 
